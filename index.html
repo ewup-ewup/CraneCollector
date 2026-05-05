@@ -42,15 +42,13 @@
     #gameInfo {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 12px;
     }
 
     #controls {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 16px;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
       display: flex;
       gap: 12px;
       z-index: 10;
@@ -58,7 +56,7 @@
 
     button {
       flex: 1;
-      padding: 12px;
+      padding: 14px;
       background: rgba(255, 255, 255, 0.2);
       border: 1px solid rgba(255, 255, 255, 0.4);
       color: white;
@@ -74,13 +72,52 @@
       transform: scale(0.95);
     }
 
-    #dragInfo {
-      position: absolute;
-      bottom: 80px;
-      left: 16px;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.6);
+    #gameOverScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      z-index: 20;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    #gameOverScreen.show {
+      display: flex;
+    }
+
+    #gameOverContent h2 {
+      font-size: 48px;
+      margin-bottom: 24px;
+    }
+
+    #gameOverContent p {
+      font-size: 24px;
+      margin-bottom: 32px;
+      color: #ffd700;
+    }
+
+    #restartBtn {
+      padding: 16px 48px;
+      font-size: 18px;
+      background: #ffd700;
+      color: #1a1a1a;
+      border: none;
+    }
+
+    #restartBtn:active {
+      transform: scale(0.95);
+    }
+
+    .particle {
+      position: fixed;
       pointer-events: none;
+      z-index: 5;
     }
   </style>
 </head>
@@ -88,13 +125,21 @@
   <div id="ui">
     <div id="gameInfo">
       <span>Time: <span id="timeLeft">30</span>s</span>
-      <span>Boxes: <span id="boxCount">0</span></span>
+      <span>Score: <span id="score">0</span></span>
     </div>
   </div>
-  <div id="dragInfo">Drag to move claw</div>
+
   <div id="controls">
     <button id="downBtn">Lower Claw</button>
     <button id="rotateBtn">Rotate</button>
+  </div>
+
+  <div id="gameOverScreen">
+    <div id="gameOverContent">
+      <h2>Game Over!</h2>
+      <p>Score: <span id="finalScore">0</span></p>
+      <button id="restartBtn">Play Again</button>
+    </div>
   </div>
 
   <script type="importmap">
@@ -114,12 +159,14 @@
     // Game State
     // ============================================
     const gameState = {
+      score: 0,
       time: 30,
-      boxesCollected: 0,
+      isPlaying: true,
       clawPosition: { x: 0, y: 5, z: 0 },
       clawRotation: 0,
-      isLoweringClaw: false,
-      clawDepth: 0, // 0~1, 0 = up, 1 = down
+      isGripping: false,
+      clawDepth: 0, // 0~1
+      grippedBox: null,
     };
 
     // ============================================
@@ -164,7 +211,6 @@
     // ============================================
     const world = new CANNON.World();
     world.gravity.set(0, -9.82, 0);
-    world.defaultContactMaterial.friction = 0.3;
 
     // ============================================
     // Game Objects
@@ -184,7 +230,7 @@
     floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
     world.addBody(floorBody);
 
-    // Two parallel bars (봉)
+    // Bars (두 봉)
     const barMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8 });
     const barGeometry = new THREE.CylinderGeometry(0.15, 0.15, 8, 16);
 
@@ -212,7 +258,7 @@
     clawArm.castShadow = true;
     clawGroup.add(clawArm);
 
-    // Left finger
+    // Fingers
     const fingerGeometry = new THREE.BoxGeometry(0.3, 0.5, 1);
     const fingerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
     const fingerL = new THREE.Mesh(fingerGeometry, fingerMaterial);
@@ -220,34 +266,33 @@
     fingerL.castShadow = true;
     clawGroup.add(fingerL);
 
-    // Right finger
     const fingerR = new THREE.Mesh(fingerGeometry, fingerMaterial);
     fingerR.position.set(0.4, -3.5, 0);
     fingerR.castShadow = true;
     clawGroup.add(fingerR);
 
-    // Boxes (박스들)
+    // Boxes
     const boxes = [];
-    const boxCount = 5;
+    const boxCount = 8;
     const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const boxColors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0xffa502, 0x95e1d3, 0xf38181];
 
     for (let i = 0; i < boxCount; i++) {
       const boxMaterial = new THREE.MeshStandardMaterial({
-        color: Math.random() * 0xffffff,
-        metalness: 0.4,
+        color: boxColors[i % boxColors.length],
+        metalness: 0.3,
         roughness: 0.6,
       });
       const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
       boxMesh.position.set(
-        (Math.random() - 0.5) * 3,
-        3 + Math.random() * 2,
-        (Math.random() - 0.5) * 2
+        (Math.random() - 0.5) * 2.5,
+        2.5 + Math.random() * 2,
+        (Math.random() - 0.5) * 1.5
       );
       boxMesh.castShadow = true;
       boxMesh.receiveShadow = true;
       scene.add(boxMesh);
 
-      // Physics body
       const boxShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
       const boxBody = new CANNON.Body({
         mass: 1,
@@ -258,7 +303,7 @@
       boxBody.position.copy(boxMesh.position);
       world.addBody(boxBody);
 
-      boxes.push({ mesh: boxMesh, body: boxBody, collected: false });
+      boxes.push({ mesh: boxMesh, body: boxBody, collected: false, gripped: false });
     }
 
     // ============================================
@@ -268,19 +313,19 @@
     let touchStartY = 0;
 
     document.addEventListener('touchstart', (e) => {
+      if (!gameState.isPlaying) return;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
     });
 
     document.addEventListener('touchmove', (e) => {
+      if (!gameState.isPlaying) return;
       e.preventDefault();
       const deltaX = (e.touches[0].clientX - touchStartX) * 0.01;
       const deltaY = (e.touches[0].clientY - touchStartY) * 0.01;
 
       gameState.clawPosition.x += deltaX;
       gameState.clawPosition.z -= deltaY;
-
-      // Clamp position
       gameState.clawPosition.x = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.x));
       gameState.clawPosition.z = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.z));
 
@@ -289,12 +334,119 @@
     });
 
     document.getElementById('downBtn').addEventListener('click', () => {
-      gameState.isLoweringClaw = !gameState.isLoweringClaw;
+      if (!gameState.isPlaying) return;
+      gameState.isGripping = !gameState.isGripping;
     });
 
     document.getElementById('rotateBtn').addEventListener('click', () => {
+      if (!gameState.isPlaying) return;
       gameState.clawRotation += Math.PI / 4;
     });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      location.reload();
+    });
+
+    // ============================================
+    // Game Logic
+    // ============================================
+    function checkBoxCollection() {
+      boxes.forEach((box) => {
+        if (!box.collected && box.body.position.y < -5) {
+          box.collected = true;
+          gameState.score++;
+          createParticles(box.mesh.position);
+          playSound('success');
+        }
+      });
+    }
+
+    function updateClawGrip() {
+      const clawTip = new THREE.Vector3(
+        gameState.clawPosition.x,
+        gameState.clawPosition.y - gameState.clawDepth * 3,
+        gameState.clawPosition.z
+      );
+
+      boxes.forEach((box) => {
+        const distance = clawTip.distanceTo(box.body.position);
+
+        if (gameState.isGripping && distance < 0.8 && !box.gripped && !box.collected) {
+          box.gripped = true;
+          gameState.grippedBox = box;
+        }
+
+        if (box.gripped && gameState.isGripping) {
+          // Weak grip - apply small upward force
+          box.body.velocity.y += 0.5; // 약한 힘
+          box.body.position.x += (gameState.clawPosition.x - box.body.position.x) * 0.05;
+          box.body.position.z += (gameState.clawPosition.z - box.body.position.z) * 0.05;
+        } else {
+          box.gripped = false;
+        }
+      });
+    }
+
+    function createParticles(position) {
+      for (let i = 0; i < 10; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = (position.x * 100 + window.innerWidth / 2) + 'px';
+        particle.style.top = (position.y * 100 + window.innerHeight / 2) + 'px';
+        particle.style.width = '8px';
+        particle.style.height = '8px';
+        particle.style.background = '#ffd700';
+        particle.style.borderRadius = '50%';
+        particle.style.boxShadow = '0 0 10px #ffd700';
+        document.body.appendChild(particle);
+
+        const vx = (Math.random() - 0.5) * 200;
+        const vy = (Math.random() - 0.5) * 200 - 100;
+        let x = parseFloat(particle.style.left);
+        let y = parseFloat(particle.style.top);
+
+        let frame = 0;
+        const animate = () => {
+          frame++;
+          x += vx / 60;
+          y += vy / 60;
+          particle.style.left = x + 'px';
+          particle.style.top = y + 'px';
+          particle.style.opacity = 1 - frame / 60;
+
+          if (frame < 60) {
+            requestAnimationFrame(animate);
+          } else {
+            particle.remove();
+          }
+        };
+        animate();
+      }
+    }
+
+    function playSound(type) {
+      // AD_SLOT: 사운드 시스템 (추후 Howler.js 통합)
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+
+      if (type === 'success') {
+        osc.frequency.value = 800;
+        gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        osc.start(audioContext.currentTime);
+        osc.stop(audioContext.currentTime + 0.2);
+      }
+    }
+
+    function endGame() {
+      gameState.isPlaying = false;
+      document.getElementById('gameOverScreen').classList.add('show');
+      document.getElementById('finalScore').textContent = gameState.score;
+    }
 
     // ============================================
     // Game Loop
@@ -308,49 +460,53 @@
       const deltaTime = (now - lastTime) / 1000;
       lastTime = now;
 
+      if (!gameState.isPlaying) {
+        renderer.render(scene, camera);
+        return;
+      }
+
       // Update physics
       world.step(1 / 60);
 
-      // Update claw position
+      // Update time
+      gameState.time -= deltaTime;
+      if (gameState.time <= 0) {
+        gameState.time = 0;
+        endGame();
+      }
+
+      // Update claw
       clawGroup.position.copy(gameState.clawPosition);
       clawGroup.rotation.y = gameState.clawRotation;
 
-      // Lower/raise claw
-      if (gameState.isLoweringClaw && gameState.clawDepth < 1) {
-        gameState.clawDepth += deltaTime;
-      } else if (!gameState.isLoweringClaw && gameState.clawDepth > 0) {
-        gameState.clawDepth -= deltaTime;
+      if (gameState.isGripping && gameState.clawDepth < 1) {
+        gameState.clawDepth += deltaTime * 2;
+      } else if (!gameState.isGripping && gameState.clawDepth > 0) {
+        gameState.clawDepth -= deltaTime * 2;
       }
       gameState.clawDepth = Math.max(0, Math.min(1, gameState.clawDepth));
       gameState.clawPosition.y = 5 - gameState.clawDepth * 3;
-      clawGroup.position.y = gameState.clawPosition.y;
 
-      // Update box physics and visuals
+      // Update boxes
+      updateClawGrip();
       boxes.forEach((box) => {
         box.mesh.position.copy(box.body.position);
         box.mesh.quaternion.copy(box.body.quaternion);
-
-        // Check if collected (fell below floor)
-        if (box.body.position.y < -5 && !box.collected) {
-          box.collected = true;
-          gameState.boxesCollected++;
-          document.getElementById('boxCount').textContent = gameState.boxesCollected;
-        }
       });
 
-      // Update UI
-      gameState.time -= deltaTime;
-      if (gameState.time < 0) gameState.time = 0;
-      document.getElementById('timeLeft').textContent = Math.ceil(gameState.time);
+      checkBoxCollection();
 
-      // Render
+      // Update UI
+      document.getElementById('timeLeft').textContent = Math.ceil(gameState.time);
+      document.getElementById('score').textContent = gameState.score;
+
       renderer.render(scene, camera);
     }
 
     animate();
 
     // ============================================
-    // Responsive Handling
+    // Responsive
     // ============================================
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -358,11 +514,8 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Handle page visibility (pause on background)
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        // Game paused
-      } else {
+      if (!document.hidden) {
         lastTime = Date.now();
       }
     });
