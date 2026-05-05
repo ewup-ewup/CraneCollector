@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>Crane Collector - 3D Claw Machine</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #1a1a1a;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: manipulation;
+    }
+
+    #ui {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      color: white;
+      padding: 16px;
+      font-size: 14px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    #gameInfo {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:active {
+      background: rgba(255, 255, 255, 0.4);
+      transform: scale(0.95);
+    }
+
+    #dragInfo {
+      position: absolute;
+      bottom: 80px;
+      left: 16px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div id="gameInfo">
+      <span>Time: <span id="timeLeft">30</span>s</span>
+      <span>Boxes: <span id="boxCount">0</span></span>
+    </div>
+  </div>
+  <div id="dragInfo">Drag to move claw</div>
+  <div id="controls">
+    <button id="downBtn">Lower Claw</button>
+    <button id="rotateBtn">Rotate</button>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@r128/build/three.module.js",
+        "cannon": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import * as CANNON from 'cannon';
+
+    // ============================================
+    // Game State
+    // ============================================
+    const gameState = {
+      time: 30,
+      boxesCollected: 0,
+      clawPosition: { x: 0, y: 5, z: 0 },
+      clawRotation: 0,
+      isLoweringClaw: false,
+      clawDepth: 0, // 0~1, 0 = up, 1 = down
+    };
+
+    // ============================================
+    // Three.js Setup
+    // ============================================
+    const canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2a2a3e);
+    scene.fog = new THREE.Fog(0x2a2a3e, 30, 60);
+
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 8, 12);
+    camera.lookAt(0, 4, 0);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+
+    // ============================================
+    // Lighting
+    // ============================================
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 15, 10);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    scene.add(directionalLight);
+
+    // ============================================
+    // Physics World
+    // ============================================
+    const world = new CANNON.World();
+    world.gravity.set(0, -9.82, 0);
+    world.defaultContactMaterial.friction = 0.3;
+
+    // ============================================
+    // Game Objects
+    // ============================================
+
+    // Floor
+    const floorGeometry = new THREE.PlaneGeometry(20, 20);
+    const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3a4e });
+    const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.y = -0.5;
+    floorMesh.receiveShadow = true;
+    scene.add(floorMesh);
+
+    const floorShape = new CANNON.Plane();
+    const floorBody = new CANNON.Body({ mass: 0, shape: floorShape });
+    floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    world.addBody(floorBody);
+
+    // Two parallel bars (봉)
+    const barMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8 });
+    const barGeometry = new THREE.CylinderGeometry(0.15, 0.15, 8, 16);
+
+    const bar1 = new THREE.Mesh(barGeometry, barMaterial);
+    bar1.position.set(-2, 2, 0);
+    bar1.rotation.z = Math.PI / 2;
+    bar1.castShadow = true;
+    scene.add(bar1);
+
+    const bar2 = new THREE.Mesh(barGeometry, barMaterial);
+    bar2.position.set(2, 2, 0);
+    bar2.rotation.z = Math.PI / 2;
+    bar2.castShadow = true;
+    scene.add(bar2);
+
+    // Claw (집게)
+    const clawGroup = new THREE.Group();
+    clawGroup.position.copy(gameState.clawPosition);
+    scene.add(clawGroup);
+
+    const clawArmGeometry = new THREE.BoxGeometry(0.3, 3, 0.3);
+    const clawArmMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+    const clawArm = new THREE.Mesh(clawArmGeometry, clawArmMaterial);
+    clawArm.position.y = -1.5;
+    clawArm.castShadow = true;
+    clawGroup.add(clawArm);
+
+    // Left finger
+    const fingerGeometry = new THREE.BoxGeometry(0.3, 0.5, 1);
+    const fingerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+    const fingerL = new THREE.Mesh(fingerGeometry, fingerMaterial);
+    fingerL.position.set(-0.4, -3.5, 0);
+    fingerL.castShadow = true;
+    clawGroup.add(fingerL);
+
+    // Right finger
+    const fingerR = new THREE.Mesh(fingerGeometry, fingerMaterial);
+    fingerR.position.set(0.4, -3.5, 0);
+    fingerR.castShadow = true;
+    clawGroup.add(fingerR);
+
+    // Boxes (박스들)
+    const boxes = [];
+    const boxCount = 5;
+    const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+
+    for (let i = 0; i < boxCount; i++) {
+      const boxMaterial = new THREE.MeshStandardMaterial({
+        color: Math.random() * 0xffffff,
+        metalness: 0.4,
+        roughness: 0.6,
+      });
+      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+      boxMesh.position.set(
+        (Math.random() - 0.5) * 3,
+        3 + Math.random() * 2,
+        (Math.random() - 0.5) * 2
+      );
+      boxMesh.castShadow = true;
+      boxMesh.receiveShadow = true;
+      scene.add(boxMesh);
+
+      // Physics body
+      const boxShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
+      const boxBody = new CANNON.Body({
+        mass: 1,
+        shape: boxShape,
+        linearDamping: 0.3,
+        angularDamping: 0.3,
+      });
+      boxBody.position.copy(boxMesh.position);
+      world.addBody(boxBody);
+
+      boxes.push({ mesh: boxMesh, body: boxBody, collected: false });
+    }
+
+    // ============================================
+    // Input Handling
+    // ============================================
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const deltaX = (e.touches[0].clientX - touchStartX) * 0.01;
+      const deltaY = (e.touches[0].clientY - touchStartY) * 0.01;
+
+      gameState.clawPosition.x += deltaX;
+      gameState.clawPosition.z -= deltaY;
+
+      // Clamp position
+      gameState.clawPosition.x = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.x));
+      gameState.clawPosition.z = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.z));
+
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+
+    document.getElementById('downBtn').addEventListener('click', () => {
+      gameState.isLoweringClaw = !gameState.isLoweringClaw;
+    });
+
+    document.getElementById('rotateBtn').addEventListener('click', () => {
+      gameState.clawRotation += Math.PI / 4;
+    });
+
+    // ============================================
+    // Game Loop
+    // ============================================
+    let lastTime = Date.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const now = Date.now();
+      const deltaTime = (now - lastTime) / 1000;
+      lastTime = now;
+
+      // Update physics
+      world.step(1 / 60);
+
+      // Update claw position
+      clawGroup.position.copy(gameState.clawPosition);
+      clawGroup.rotation.y = gameState.clawRotation;
+
+      // Lower/raise claw
+      if (gameState.isLoweringClaw && gameState.clawDepth < 1) {
+        gameState.clawDepth += deltaTime;
+      } else if (!gameState.isLoweringClaw && gameState.clawDepth > 0) {
+        gameState.clawDepth -= deltaTime;
+      }
+      gameState.clawDepth = Math.max(0, Math.min(1, gameState.clawDepth));
+      gameState.clawPosition.y = 5 - gameState.clawDepth * 3;
+      clawGroup.position.y = gameState.clawPosition.y;
+
+      // Update box physics and visuals
+      boxes.forEach((box) => {
+        box.mesh.position.copy(box.body.position);
+        box.mesh.quaternion.copy(box.body.quaternion);
+
+        // Check if collected (fell below floor)
+        if (box.body.position.y < -5 && !box.collected) {
+          box.collected = true;
+          gameState.boxesCollected++;
+          document.getElementById('boxCount').textContent = gameState.boxesCollected;
+        }
+      });
+
+      // Update UI
+      gameState.time -= deltaTime;
+      if (gameState.time < 0) gameState.time = 0;
+      document.getElementById('timeLeft').textContent = Math.ceil(gameState.time);
+
+      // Render
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ============================================
+    // Responsive Handling
+    // ============================================
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Handle page visibility (pause on background)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Game paused
+      } else {
+        lastTime = Date.now();
+      }
+    });
+  </script>
+</body>
+</html>
