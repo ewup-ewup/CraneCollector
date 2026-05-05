@@ -78,7 +78,7 @@
       transform: scale(0.95);
     }
 
-    #gradeRevealScreen {
+    .modal {
       position: fixed;
       top: 0;
       left: 0;
@@ -91,6 +91,57 @@
       align-items: center;
       justify-content: center;
       color: white;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      text-align: center;
+    }
+
+    #mainMenuScreen h1 {
+      font-size: 56px;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #mainMenuScreen .stats {
+      margin: 32px 0;
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    #mainMenuScreen .stat-line {
+      margin: 12px 0;
+    }
+
+    #mainMenuScreen .stat-label {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+
+    #mainMenuScreen .stat-value {
+      color: #ffd700;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    #mainMenuScreen .play-btn {
+      margin-top: 40px;
+      padding: 18px 48px;
+      font-size: 20px;
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #1a1a1a;
+      border: none;
+    }
+
+    #gradeRevealScreen {
+      display: none;
     }
 
     #gradeRevealScreen.show {
@@ -137,41 +188,48 @@
     }
 
     #gameOverScreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.9);
       display: none;
-      z-index: 20;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
     }
 
     #gameOverScreen.show {
       display: flex;
     }
 
-    #gameOverContent h2 {
+    #gameOverScreen h2 {
       font-size: 48px;
       margin-bottom: 24px;
     }
 
-    #gameOverContent p {
-      font-size: 24px;
-      margin-bottom: 32px;
+    #gameOverScreen .score {
+      font-size: 28px;
       color: #ffd700;
+      margin-bottom: 16px;
     }
 
-    #restartBtn {
-      padding: 16px 48px;
-      font-size: 18px;
+    #gameOverScreen .stats-compare {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 32px;
+    }
+
+    #gameOverScreen .buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    #restartBtn, #menuBtn {
+      flex: 1;
+      padding: 14px;
+      font-size: 16px;
       background: #ffd700;
       color: #1a1a1a;
       border: none;
+    }
+
+    #menuBtn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
     }
 
     .particle {
@@ -197,6 +255,10 @@
       0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
       100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
     }
+
+    #ui.hidden, #controls.hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -213,18 +275,47 @@
     <button id="rotateBtn">Rotate</button>
   </div>
 
-  <div id="gradeRevealScreen">
-    <div id="gradeRevealBox">F</div>
-    <div id="gradeLabel">등급</div>
-    <div id="gradePoints">+100 Points</div>
-    <button id="nextBtn">Next</button>
+  <div id="mainMenuScreen" class="modal show">
+    <div class="modal-content">
+      <h1>🎮 Crane Collector</h1>
+      <p style="color: rgba(255,255,255,0.7); margin-bottom: 32px;">橋渡し式 인형뽑기 시뮬레이터</p>
+
+      <div class="stats">
+        <div class="stat-line">
+          <div class="stat-label">Best Score</div>
+          <div class="stat-value" id="bestScore">0</div>
+        </div>
+        <div class="stat-line">
+          <div class="stat-label">Total Plays</div>
+          <div class="stat-value" id="totalPlays">0</div>
+        </div>
+      </div>
+
+      <button class="play-btn" id="startBtn">START GAME</button>
+    </div>
   </div>
 
-  <div id="gameOverScreen">
-    <div id="gameOverContent">
+  <div id="gradeRevealScreen" class="modal">
+    <div class="modal-content">
+      <div id="gradeRevealBox">F</div>
+      <div id="gradeLabel">등급</div>
+      <div id="gradePoints">+100 Points</div>
+      <button id="nextBtn">Next</button>
+    </div>
+  </div>
+
+  <div id="gameOverScreen" class="modal">
+    <div class="modal-content">
       <h2>Game Over!</h2>
-      <p>Final Score: <span id="finalScore">0</span></p>
-      <button id="restartBtn">Play Again</button>
+      <div class="score">Score: <span id="finalScore">0</span></div>
+      <div class="stats-compare">
+        <div id="bestScoreInfo">Best: 0</div>
+        <div id="playCountInfo">Total plays: 1</div>
+      </div>
+      <div class="buttons">
+        <button id="restartBtn">Play Again</button>
+        <button id="menuBtn">Menu</button>
+      </div>
     </div>
   </div>
 
@@ -242,6 +333,32 @@
     import * as CANNON from 'cannon';
 
     // ============================================
+    // Storage System
+    // ============================================
+    const Storage = {
+      get: (key, defaultValue) => {
+        try {
+          const value = localStorage.getItem(key);
+          return value ? JSON.parse(value) : defaultValue;
+        } catch (e) {
+          return defaultValue;
+        }
+      },
+      set: (key, value) => {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (e) {
+          console.warn('Storage write failed');
+        }
+      },
+    };
+
+    const stats = {
+      bestScore: Storage.get('bestScore', 0),
+      totalPlays: Storage.get('totalPlays', 0),
+    };
+
+    // ============================================
     // Grade System
     // ============================================
     const GRADES = {
@@ -254,7 +371,6 @@
     };
 
     function getRandomGrade(attemptCount = 0) {
-      // Pity system: 실패 누적 시 높은 등급 확률 증가
       const pittyBoost = Math.min(attemptCount * 0.02, 0.3);
       const rand = Math.random() - pittyBoost;
 
@@ -272,16 +388,15 @@
     const gameState = {
       score: 0,
       time: 30,
-      isPlaying: true,
+      isPlaying: false,
+      isRevealing: false,
       clawPosition: { x: 0, y: 5, z: 0 },
       clawRotation: 0,
       isGripping: false,
       clawDepth: 0,
-      grippedBox: null,
       totalBoxes: 8,
       boxesLeft: 8,
       attemptCount: 0,
-      isRevealing: false,
     };
 
     // ============================================
@@ -379,93 +494,100 @@
     fingerR.castShadow = true;
     clawGroup.add(fingerR);
 
-    // Boxes (모두 회색 - 등급 숨김)
-    const boxes = [];
-    const boxCount = 8;
-    const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const hiddenBoxMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.2, roughness: 0.8 });
+    // Boxes
+    let boxes = [];
 
-    for (let i = 0; i < boxCount; i++) {
-      const boxMesh = new THREE.Mesh(boxGeometry, hiddenBoxMaterial.clone());
-      boxMesh.position.set(
-        (Math.random() - 0.5) * 2.5,
-        2.5 + Math.random() * 2,
-        (Math.random() - 0.5) * 1.5
-      );
-      boxMesh.castShadow = true;
-      boxMesh.receiveShadow = true;
-      scene.add(boxMesh);
-
-      const boxShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
-      const boxBody = new CANNON.Body({
-        mass: 1,
-        shape: boxShape,
-        linearDamping: 0.3,
-        angularDamping: 0.3,
+    function initializeBoxes() {
+      // Remove old boxes
+      boxes.forEach((box) => {
+        scene.remove(box.mesh);
+        world.removeBody(box.body);
       });
-      boxBody.position.copy(boxMesh.position);
-      world.addBody(boxBody);
+      boxes = [];
 
-      const grade = getRandomGrade();
-      boxes.push({
-        mesh: boxMesh,
-        body: boxBody,
-        collected: false,
-        gripped: false,
-        grade: grade,
-        isLastOne: i === boxCount - 1,
-      });
+      const boxCount = 8;
+      const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+      const hiddenBoxMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.2, roughness: 0.8 });
+
+      for (let i = 0; i < boxCount; i++) {
+        const boxMesh = new THREE.Mesh(boxGeometry, hiddenBoxMaterial.clone());
+        boxMesh.position.set(
+          (Math.random() - 0.5) * 2.5,
+          2.5 + Math.random() * 2,
+          (Math.random() - 0.5) * 1.5
+        );
+        boxMesh.castShadow = true;
+        boxMesh.receiveShadow = true;
+        scene.add(boxMesh);
+
+        const boxShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
+        const boxBody = new CANNON.Body({
+          mass: 1,
+          shape: boxShape,
+          linearDamping: 0.3,
+          angularDamping: 0.3,
+        });
+        boxBody.position.copy(boxMesh.position);
+        world.addBody(boxBody);
+
+        const grade = getRandomGrade();
+        boxes.push({
+          mesh: boxMesh,
+          body: boxBody,
+          collected: false,
+          gripped: false,
+          grade: grade,
+          isLastOne: i === boxCount - 1,
+        });
+      }
+
+      gameState.boxesLeft = boxCount;
     }
 
     // ============================================
-    // Input Handling
+    // UI Functions
     // ============================================
-    let touchStartX = 0;
-    let touchStartY = 0;
+    function showMainMenu() {
+      document.getElementById('mainMenuScreen').classList.add('show');
+      document.getElementById('ui').classList.add('hidden');
+      document.getElementById('controls').classList.add('hidden');
+      document.getElementById('bestScore').textContent = stats.bestScore;
+      document.getElementById('totalPlays').textContent = stats.totalPlays;
+    }
 
-    document.addEventListener('touchstart', (e) => {
-      if (!gameState.isPlaying || gameState.isRevealing) return;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    });
-
-    document.addEventListener('touchmove', (e) => {
-      if (!gameState.isPlaying || gameState.isRevealing) return;
-      e.preventDefault();
-      const deltaX = (e.touches[0].clientX - touchStartX) * 0.01;
-      const deltaY = (e.touches[0].clientY - touchStartY) * 0.01;
-
-      gameState.clawPosition.x += deltaX;
-      gameState.clawPosition.z -= deltaY;
-      gameState.clawPosition.x = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.x));
-      gameState.clawPosition.z = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.z));
-
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    });
-
-    document.getElementById('downBtn').addEventListener('click', () => {
-      if (!gameState.isPlaying || gameState.isRevealing) return;
-      gameState.isGripping = !gameState.isGripping;
-    });
-
-    document.getElementById('rotateBtn').addEventListener('click', () => {
-      if (!gameState.isPlaying || gameState.isRevealing) return;
-      gameState.clawRotation += Math.PI / 4;
-    });
-
-    document.getElementById('nextBtn').addEventListener('click', () => {
-      document.getElementById('gradeRevealScreen').classList.remove('show');
+    function startGame() {
+      gameState.score = 0;
+      gameState.time = 30;
+      gameState.isPlaying = true;
       gameState.isRevealing = false;
-    });
+      gameState.clawPosition = { x: 0, y: 5, z: 0 };
+      gameState.clawRotation = 0;
+      gameState.clawDepth = 0;
+      gameState.isGripping = false;
 
-    document.getElementById('restartBtn').addEventListener('click', () => {
-      location.reload();
-    });
+      document.getElementById('mainMenuScreen').classList.remove('show');
+      document.getElementById('ui').classList.remove('hidden');
+      document.getElementById('controls').classList.remove('hidden');
 
-    // ============================================
-    // Game Logic
-    // ============================================
+      initializeBoxes();
+    }
+
+    function endGame() {
+      gameState.isPlaying = false;
+      stats.totalPlays++;
+
+      if (gameState.score > stats.bestScore) {
+        stats.bestScore = gameState.score;
+        Storage.set('bestScore', stats.bestScore);
+      }
+      Storage.set('totalPlays', stats.totalPlays);
+
+      document.getElementById('finalScore').textContent = gameState.score;
+      document.getElementById('bestScoreInfo').textContent = `Best: ${stats.bestScore}`;
+      document.getElementById('playCountInfo').textContent = `Total plays: ${stats.totalPlays}`;
+      document.getElementById('gameOverScreen').classList.add('show');
+    }
+
     function revealGrade(box) {
       gameState.isRevealing = true;
       gameState.attemptCount = 0;
@@ -580,7 +702,7 @@
     }
 
     function playSound(type) {
-      // AD_SLOT: 사운드 시스템 (추후 Howler.js)
+      // AD_SLOT: 사운드 시스템
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioContext.createOscillator();
@@ -607,11 +729,51 @@
       }
     }
 
-    function endGame() {
-      gameState.isPlaying = false;
-      document.getElementById('gameOverScreen').classList.add('show');
-      document.getElementById('finalScore').textContent = gameState.score;
-    }
+    // ============================================
+    // Input Handling
+    // ============================================
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      if (!gameState.isPlaying || gameState.isRevealing) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!gameState.isPlaying || gameState.isRevealing) return;
+      e.preventDefault();
+      const deltaX = (e.touches[0].clientX - touchStartX) * 0.01;
+      const deltaY = (e.touches[0].clientY - touchStartY) * 0.01;
+
+      gameState.clawPosition.x += deltaX;
+      gameState.clawPosition.z -= deltaY;
+      gameState.clawPosition.x = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.x));
+      gameState.clawPosition.z = Math.max(-3.5, Math.min(3.5, gameState.clawPosition.z));
+
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('downBtn').addEventListener('click', () => {
+      if (!gameState.isPlaying || gameState.isRevealing) return;
+      gameState.isGripping = !gameState.isGripping;
+    });
+    document.getElementById('rotateBtn').addEventListener('click', () => {
+      if (!gameState.isPlaying || gameState.isRevealing) return;
+      gameState.clawRotation += Math.PI / 4;
+    });
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      document.getElementById('gradeRevealScreen').classList.remove('show');
+      gameState.isRevealing = false;
+    });
+    document.getElementById('restartBtn').addEventListener('click', startGame);
+    document.getElementById('menuBtn').addEventListener('click', () => {
+      document.getElementById('gameOverScreen').classList.remove('show');
+      showMainMenu();
+    });
 
     // ============================================
     // Game Loop
@@ -681,6 +843,9 @@
         lastTime = Date.now();
       }
     });
+
+    // Initialize
+    showMainMenu();
   </script>
 </body>
 </html>
