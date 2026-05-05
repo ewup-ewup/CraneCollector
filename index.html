@@ -91,6 +91,7 @@
       align-items: center;
       justify-content: center;
       color: white;
+      padding: 24px;
     }
 
     .modal.show {
@@ -99,45 +100,97 @@
 
     .modal-content {
       text-align: center;
+      max-width: 400px;
     }
 
     #mainMenuScreen h1 {
       font-size: 56px;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
       background: linear-gradient(135deg, #ffd700, #ffed4e);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
-    #mainMenuScreen .stats {
-      margin: 32px 0;
-      font-size: 18px;
-      color: rgba(255, 255, 255, 0.8);
-    }
-
-    #mainMenuScreen .stat-line {
-      margin: 12px 0;
-    }
-
-    #mainMenuScreen .stat-label {
-      color: rgba(255, 255, 255, 0.6);
+    #mainMenuScreen .subtitle {
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 32px;
       font-size: 14px;
     }
 
-    #mainMenuScreen .stat-value {
-      color: #ffd700;
-      font-size: 24px;
-      font-weight: bold;
+    .daily-section {
+      background: rgba(255, 215, 0, 0.1);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
     }
 
-    #mainMenuScreen .play-btn {
-      margin-top: 40px;
-      padding: 18px 48px;
-      font-size: 20px;
-      background: linear-gradient(135deg, #ffd700, #ffed4e);
+    .daily-section h3 {
+      color: #ffd700;
+      margin-bottom: 12px;
+    }
+
+    .play-option {
+      margin: 12px 0;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .play-option.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .play-option-label {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .play-option-label .label {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .play-option-label .desc {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .play-btn-section button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      background: #ffd700;
       color: #1a1a1a;
       border: none;
+    }
+
+    .play-btn-section button:disabled {
+      background: rgba(255, 215, 0, 0.3);
+      color: rgba(0, 0, 0, 0.3);
+      cursor: not-allowed;
+    }
+
+    #stats {
+      margin: 24px 0;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    #stats .stat-line {
+      margin: 8px 0;
+    }
+
+    #stats .stat-value {
+      color: #ffd700;
+      font-weight: bold;
     }
 
     #gradeRevealScreen {
@@ -216,10 +269,10 @@
       display: flex;
       gap: 12px;
       margin-top: 24px;
+      flex-direction: column;
     }
 
     #restartBtn, #menuBtn {
-      flex: 1;
       padding: 14px;
       font-size: 16px;
       background: #ffd700;
@@ -228,6 +281,53 @@
     }
 
     #menuBtn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    #adModal {
+      display: none;
+    }
+
+    #adModal.show {
+      display: flex;
+    }
+
+    #adModal .modal-content {
+      text-align: center;
+    }
+
+    #adModal h3 {
+      margin-bottom: 32px;
+      font-size: 28px;
+    }
+
+    #adModal .ad-placeholder {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px dashed rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      padding: 48px 24px;
+      margin: 24px 0;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+    }
+
+    #adModal .buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    #closeAdBtn, #skipAdBtn {
+      flex: 1;
+      padding: 12px;
+      font-size: 14px;
+      background: #ffd700;
+      color: #1a1a1a;
+      border: none;
+    }
+
+    #skipAdBtn {
       background: rgba(255, 255, 255, 0.2);
       color: white;
     }
@@ -278,20 +378,55 @@
   <div id="mainMenuScreen" class="modal show">
     <div class="modal-content">
       <h1>🎮 Crane Collector</h1>
-      <p style="color: rgba(255,255,255,0.7); margin-bottom: 32px;">橋渡し式 인형뽑기 시뮬레이터</p>
+      <p class="subtitle">橋渡し식 인형뽑기 시뮬레이터</p>
 
-      <div class="stats">
-        <div class="stat-line">
-          <div class="stat-label">Best Score</div>
-          <div class="stat-value" id="bestScore">0</div>
+      <div class="daily-section">
+        <h3>📅 Daily Free Play</h3>
+        <div class="play-option" id="freePlayOption">
+          <div class="play-option-label">
+            <div class="label">🎁 Free Play</div>
+            <div class="desc">1 game per day</div>
+          </div>
+          <button id="freePlayBtn" style="padding: 8px 16px; margin: 0;">Play</button>
         </div>
-        <div class="stat-line">
-          <div class="stat-label">Total Plays</div>
-          <div class="stat-value" id="totalPlays">0</div>
+
+        <div class="play-option" id="adPlayOption">
+          <div class="play-option-label">
+            <div class="label">📺 Watch Ad</div>
+            <div class="desc">+1 game free</div>
+          </div>
+          <button id="adPlayBtn" style="padding: 8px 16px; margin: 0;">Watch</button>
         </div>
       </div>
 
-      <button class="play-btn" id="startBtn">START GAME</button>
+      <div id="stats">
+        <div class="stat-line">
+          <span>Best Score:</span>
+          <span class="stat-value" id="bestScore">0</span>
+        </div>
+        <div class="stat-line">
+          <span>Total Plays:</span>
+          <span class="stat-value" id="totalPlays">0</span>
+        </div>
+        <div class="stat-line">
+          <span>Today's Plays:</span>
+          <span class="stat-value" id="todayPlays">0</span> / 1 (Free) + <span id="adPlaysLeft">1</span> (Ad)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="adModal" class="modal">
+    <div class="modal-content">
+      <h3>📺 Watch Advertisement</h3>
+      <div class="ad-placeholder">
+        <!-- AD_SLOT: 광고 영역 (추후 AdMob/AppLovin 통합) -->
+        Advertisement will be displayed here
+      </div>
+      <div class="buttons">
+        <button id="closeAdBtn">Claim Reward</button>
+        <button id="skipAdBtn">Skip</button>
+      </div>
     </div>
   </div>
 
@@ -333,14 +468,13 @@
     import * as CANNON from 'cannon';
 
     // ============================================
-    // Storage System
+    // Storage & Daily System
     // ============================================
     const Storage = {
       get: (key, defaultValue) => {
         try {
-          const value = localStorage.getItem(key);
-          return value ? JSON.parse(value) : defaultValue;
-        } catch (e) {
+          return JSON.parse(localStorage.getItem(key)) ?? defaultValue;
+        } catch {
           return defaultValue;
         }
       },
@@ -356,7 +490,39 @@
     const stats = {
       bestScore: Storage.get('bestScore', 0),
       totalPlays: Storage.get('totalPlays', 0),
+      lastFreePlayDate: Storage.get('lastFreePlayDate', ''),
+      adPlaysUsed: Storage.get('adPlaysUsed', 0),
     };
+
+    function getTodayDate() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function isFreePlayAvailable() {
+      const today = getTodayDate();
+      return stats.lastFreePlayDate !== today;
+    }
+
+    function getAdPlaysLeft() {
+      const today = getTodayDate();
+      const lastAdDate = Storage.get('lastAdDate', '');
+      if (lastAdDate !== today) {
+        stats.adPlaysUsed = 0;
+        Storage.set('lastAdDate', today);
+      }
+      return Math.max(0, 1 - stats.adPlaysUsed);
+    }
+
+    function claimFreePlay() {
+      const today = getTodayDate();
+      stats.lastFreePlayDate = today;
+      Storage.set('lastFreePlayDate', today);
+    }
+
+    function claimAdPlay() {
+      stats.adPlaysUsed++;
+      Storage.set('adPlaysUsed', stats.adPlaysUsed);
+    }
 
     // ============================================
     // Grade System
@@ -423,7 +589,6 @@
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
 
-    // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
@@ -434,9 +599,6 @@
     directionalLight.shadow.mapSize.height = 2048;
     scene.add(directionalLight);
 
-    // ============================================
-    // Physics World
-    // ============================================
     const world = new CANNON.World();
     world.gravity.set(0, -9.82, 0);
 
@@ -498,7 +660,6 @@
     let boxes = [];
 
     function initializeBoxes() {
-      // Remove old boxes
       boxes.forEach((box) => {
         scene.remove(box.mesh);
         world.removeBody(box.body);
@@ -547,12 +708,43 @@
     // ============================================
     // UI Functions
     // ============================================
+    function updateMainMenuUI() {
+      document.getElementById('bestScore').textContent = stats.bestScore;
+      document.getElementById('totalPlays').textContent = stats.totalPlays;
+      document.getElementById('todayPlays').textContent = isFreePlayAvailable() ? 0 : 1;
+      document.getElementById('adPlaysLeft').textContent = getAdPlaysLeft();
+
+      const freePlayBtn = document.getElementById('freePlayBtn');
+      const adPlayBtn = document.getElementById('adPlayBtn');
+      const freePlayOption = document.getElementById('freePlayOption');
+      const adPlayOption = document.getElementById('adPlayOption');
+
+      if (!isFreePlayAvailable()) {
+        freePlayBtn.textContent = 'Played ✓';
+        freePlayBtn.disabled = true;
+        freePlayOption.classList.add('disabled');
+      } else {
+        freePlayBtn.textContent = 'Play';
+        freePlayBtn.disabled = false;
+        freePlayOption.classList.remove('disabled');
+      }
+
+      if (getAdPlaysLeft() === 0) {
+        adPlayBtn.textContent = 'No Plays Left';
+        adPlayBtn.disabled = true;
+        adPlayOption.classList.add('disabled');
+      } else {
+        adPlayBtn.textContent = 'Watch';
+        adPlayBtn.disabled = false;
+        adPlayOption.classList.remove('disabled');
+      }
+    }
+
     function showMainMenu() {
+      updateMainMenuUI();
       document.getElementById('mainMenuScreen').classList.add('show');
       document.getElementById('ui').classList.add('hidden');
       document.getElementById('controls').classList.add('hidden');
-      document.getElementById('bestScore').textContent = stats.bestScore;
-      document.getElementById('totalPlays').textContent = stats.totalPlays;
     }
 
     function startGame() {
@@ -566,6 +758,7 @@
       gameState.isGripping = false;
 
       document.getElementById('mainMenuScreen').classList.remove('show');
+      document.getElementById('adModal').classList.remove('show');
       document.getElementById('ui').classList.remove('hidden');
       document.getElementById('controls').classList.remove('hidden');
 
@@ -590,7 +783,6 @@
 
     function revealGrade(box) {
       gameState.isRevealing = true;
-      gameState.attemptCount = 0;
 
       const grade = box.isLastOne ? 'A' : box.grade;
       const gradeData = GRADES[grade];
@@ -702,7 +894,6 @@
     }
 
     function playSound(type) {
-      // AD_SLOT: 사운드 시스템
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioContext.createOscillator();
@@ -724,9 +915,7 @@
           osc.start(audioContext.currentTime);
           osc.stop(audioContext.currentTime + 0.4);
         }
-      } catch (e) {
-        // Audio not available
-      }
+      } catch (e) {}
     }
 
     // ============================================
@@ -756,20 +945,46 @@
       touchStartY = e.touches[0].clientY;
     });
 
-    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('freePlayBtn').addEventListener('click', () => {
+      if (isFreePlayAvailable()) {
+        claimFreePlay();
+        startGame();
+      }
+    });
+
+    document.getElementById('adPlayBtn').addEventListener('click', () => {
+      if (getAdPlaysLeft() > 0) {
+        document.getElementById('adModal').classList.add('show');
+      }
+    });
+
+    document.getElementById('closeAdBtn').addEventListener('click', () => {
+      claimAdPlay();
+      document.getElementById('adModal').classList.remove('show');
+      startGame();
+    });
+
+    document.getElementById('skipAdBtn').addEventListener('click', () => {
+      document.getElementById('adModal').classList.remove('show');
+    });
+
     document.getElementById('downBtn').addEventListener('click', () => {
       if (!gameState.isPlaying || gameState.isRevealing) return;
       gameState.isGripping = !gameState.isGripping;
     });
+
     document.getElementById('rotateBtn').addEventListener('click', () => {
       if (!gameState.isPlaying || gameState.isRevealing) return;
       gameState.clawRotation += Math.PI / 4;
     });
+
     document.getElementById('nextBtn').addEventListener('click', () => {
       document.getElementById('gradeRevealScreen').classList.remove('show');
       gameState.isRevealing = false;
     });
+
     document.getElementById('restartBtn').addEventListener('click', startGame);
+
     document.getElementById('menuBtn').addEventListener('click', () => {
       document.getElementById('gameOverScreen').classList.remove('show');
       showMainMenu();
@@ -831,7 +1046,6 @@
 
     animate();
 
-    // Responsive
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -844,7 +1058,6 @@
       }
     });
 
-    // Initialize
     showMainMenu();
   </script>
 </body>
