@@ -42,6 +42,12 @@
     #gameInfo {
       display: flex;
       justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    #boxInfo {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
     }
 
     #controls {
@@ -70,6 +76,64 @@
     button:active {
       background: rgba(255, 255, 255, 0.4);
       transform: scale(0.95);
+    }
+
+    #gradeRevealScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      z-index: 20;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    #gradeRevealScreen.show {
+      display: flex;
+    }
+
+    #gradeRevealBox {
+      width: 200px;
+      height: 200px;
+      border: 3px solid #ffd700;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      font-weight: bold;
+      margin-bottom: 32px;
+      animation: gradeRevealPulse 0.6s ease-out;
+    }
+
+    @keyframes gradeRevealPulse {
+      0% { transform: scale(0.3); opacity: 0; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    #gradeLabel {
+      font-size: 28px;
+      margin-bottom: 24px;
+    }
+
+    #gradePoints {
+      font-size: 20px;
+      color: #ffd700;
+      margin-bottom: 32px;
+    }
+
+    #nextBtn {
+      padding: 12px 32px;
+      font-size: 16px;
+      background: #ffd700;
+      color: #1a1a1a;
+      border: none;
     }
 
     #gameOverScreen {
@@ -110,14 +174,28 @@
       border: none;
     }
 
-    #restartBtn:active {
-      transform: scale(0.95);
-    }
-
     .particle {
       position: fixed;
       pointer-events: none;
       z-index: 5;
+    }
+
+    .lastOneEffect {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 72px;
+      color: #ffd700;
+      text-shadow: 0 0 20px #ffd700;
+      pointer-events: none;
+      z-index: 15;
+      animation: lastOnePulse 0.8s ease-out forwards;
+    }
+
+    @keyframes lastOnePulse {
+      0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
     }
   </style>
 </head>
@@ -127,6 +205,7 @@
       <span>Time: <span id="timeLeft">30</span>s</span>
       <span>Score: <span id="score">0</span></span>
     </div>
+    <div id="boxInfo">Boxes: <span id="boxLeft">8</span> / 8</div>
   </div>
 
   <div id="controls">
@@ -134,10 +213,17 @@
     <button id="rotateBtn">Rotate</button>
   </div>
 
+  <div id="gradeRevealScreen">
+    <div id="gradeRevealBox">F</div>
+    <div id="gradeLabel">등급</div>
+    <div id="gradePoints">+100 Points</div>
+    <button id="nextBtn">Next</button>
+  </div>
+
   <div id="gameOverScreen">
     <div id="gameOverContent">
       <h2>Game Over!</h2>
-      <p>Score: <span id="finalScore">0</span></p>
+      <p>Final Score: <span id="finalScore">0</span></p>
       <button id="restartBtn">Play Again</button>
     </div>
   </div>
@@ -156,6 +242,31 @@
     import * as CANNON from 'cannon';
 
     // ============================================
+    // Grade System
+    // ============================================
+    const GRADES = {
+      F: { label: 'F - Common', color: 0x888888, points: 10, prob: 0.40 },
+      E: { label: 'E - Uncommon', color: 0x4ecdc4, points: 25, prob: 0.30 },
+      D: { label: 'D - Rare', color: 0x45b7d1, points: 50, prob: 0.15 },
+      C: { label: 'C - Epic', color: 0x9d4edd, points: 100, prob: 0.10 },
+      B: { label: 'B - Legend', color: 0xffa502, points: 250, prob: 0.04 },
+      A: { label: 'A - Mythic', color: 0xffd700, points: 500, prob: 0.01 },
+    };
+
+    function getRandomGrade(attemptCount = 0) {
+      // Pity system: 실패 누적 시 높은 등급 확률 증가
+      const pittyBoost = Math.min(attemptCount * 0.02, 0.3);
+      const rand = Math.random() - pittyBoost;
+
+      if (rand < GRADES.F.prob) return 'F';
+      if (rand < GRADES.F.prob + GRADES.E.prob) return 'E';
+      if (rand < GRADES.F.prob + GRADES.E.prob + GRADES.D.prob) return 'D';
+      if (rand < GRADES.F.prob + GRADES.E.prob + GRADES.D.prob + GRADES.C.prob) return 'C';
+      if (rand < GRADES.F.prob + GRADES.E.prob + GRADES.D.prob + GRADES.C.prob + GRADES.B.prob) return 'B';
+      return 'A';
+    }
+
+    // ============================================
     // Game State
     // ============================================
     const gameState = {
@@ -165,8 +276,12 @@
       clawPosition: { x: 0, y: 5, z: 0 },
       clawRotation: 0,
       isGripping: false,
-      clawDepth: 0, // 0~1
+      clawDepth: 0,
       grippedBox: null,
+      totalBoxes: 8,
+      boxesLeft: 8,
+      attemptCount: 0,
+      isRevealing: false,
     };
 
     // ============================================
@@ -193,9 +308,7 @@
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
 
-    // ============================================
     // Lighting
-    // ============================================
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
@@ -212,10 +325,6 @@
     const world = new CANNON.World();
     world.gravity.set(0, -9.82, 0);
 
-    // ============================================
-    // Game Objects
-    // ============================================
-
     // Floor
     const floorGeometry = new THREE.PlaneGeometry(20, 20);
     const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3a4e });
@@ -230,7 +339,7 @@
     floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
     world.addBody(floorBody);
 
-    // Bars (두 봉)
+    // Bars
     const barMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8 });
     const barGeometry = new THREE.CylinderGeometry(0.15, 0.15, 8, 16);
 
@@ -246,7 +355,7 @@
     bar2.castShadow = true;
     scene.add(bar2);
 
-    // Claw (집게)
+    // Claw
     const clawGroup = new THREE.Group();
     clawGroup.position.copy(gameState.clawPosition);
     scene.add(clawGroup);
@@ -258,7 +367,6 @@
     clawArm.castShadow = true;
     clawGroup.add(clawArm);
 
-    // Fingers
     const fingerGeometry = new THREE.BoxGeometry(0.3, 0.5, 1);
     const fingerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
     const fingerL = new THREE.Mesh(fingerGeometry, fingerMaterial);
@@ -271,19 +379,14 @@
     fingerR.castShadow = true;
     clawGroup.add(fingerR);
 
-    // Boxes
+    // Boxes (모두 회색 - 등급 숨김)
     const boxes = [];
     const boxCount = 8;
     const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const boxColors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0xffa502, 0x95e1d3, 0xf38181];
+    const hiddenBoxMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.2, roughness: 0.8 });
 
     for (let i = 0; i < boxCount; i++) {
-      const boxMaterial = new THREE.MeshStandardMaterial({
-        color: boxColors[i % boxColors.length],
-        metalness: 0.3,
-        roughness: 0.6,
-      });
-      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+      const boxMesh = new THREE.Mesh(boxGeometry, hiddenBoxMaterial.clone());
       boxMesh.position.set(
         (Math.random() - 0.5) * 2.5,
         2.5 + Math.random() * 2,
@@ -303,7 +406,15 @@
       boxBody.position.copy(boxMesh.position);
       world.addBody(boxBody);
 
-      boxes.push({ mesh: boxMesh, body: boxBody, collected: false, gripped: false });
+      const grade = getRandomGrade();
+      boxes.push({
+        mesh: boxMesh,
+        body: boxBody,
+        collected: false,
+        gripped: false,
+        grade: grade,
+        isLastOne: i === boxCount - 1,
+      });
     }
 
     // ============================================
@@ -313,13 +424,13 @@
     let touchStartY = 0;
 
     document.addEventListener('touchstart', (e) => {
-      if (!gameState.isPlaying) return;
+      if (!gameState.isPlaying || gameState.isRevealing) return;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
     });
 
     document.addEventListener('touchmove', (e) => {
-      if (!gameState.isPlaying) return;
+      if (!gameState.isPlaying || gameState.isRevealing) return;
       e.preventDefault();
       const deltaX = (e.touches[0].clientX - touchStartX) * 0.01;
       const deltaY = (e.touches[0].clientY - touchStartY) * 0.01;
@@ -334,13 +445,18 @@
     });
 
     document.getElementById('downBtn').addEventListener('click', () => {
-      if (!gameState.isPlaying) return;
+      if (!gameState.isPlaying || gameState.isRevealing) return;
       gameState.isGripping = !gameState.isGripping;
     });
 
     document.getElementById('rotateBtn').addEventListener('click', () => {
-      if (!gameState.isPlaying) return;
+      if (!gameState.isPlaying || gameState.isRevealing) return;
       gameState.clawRotation += Math.PI / 4;
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      document.getElementById('gradeRevealScreen').classList.remove('show');
+      gameState.isRevealing = false;
     });
 
     document.getElementById('restartBtn').addEventListener('click', () => {
@@ -350,13 +466,43 @@
     // ============================================
     // Game Logic
     // ============================================
+    function revealGrade(box) {
+      gameState.isRevealing = true;
+      gameState.attemptCount = 0;
+
+      const grade = box.isLastOne ? 'A' : box.grade;
+      const gradeData = GRADES[grade];
+      const points = box.isLastOne ? GRADES.A.points * 2 : gradeData.points;
+
+      const screen = document.getElementById('gradeRevealScreen');
+      const gradeBox = document.getElementById('gradeRevealBox');
+      const gradeLabel = document.getElementById('gradeLabel');
+      const gradePoints = document.getElementById('gradePoints');
+
+      gradeBox.textContent = grade;
+      gradeBox.style.borderColor = `#${gradeData.color.toString(16).padStart(6, '0')}`;
+      gradeBox.style.color = `#${gradeData.color.toString(16).padStart(6, '0')}`;
+      gradeLabel.textContent = box.isLastOne ? 'LAST ONE! 🎉' : gradeData.label;
+      gradePoints.textContent = `+${points} Points`;
+
+      gameState.score += points;
+      screen.classList.add('show');
+
+      if (box.isLastOne) {
+        createLastOneEffect();
+        playSound('lastOne');
+      } else {
+        playSound('success');
+      }
+    }
+
     function checkBoxCollection() {
       boxes.forEach((box) => {
         if (!box.collected && box.body.position.y < -5) {
           box.collected = true;
-          gameState.score++;
+          gameState.boxesLeft--;
+          revealGrade(box);
           createParticles(box.mesh.position);
-          playSound('success');
         }
       });
     }
@@ -369,16 +515,16 @@
       );
 
       boxes.forEach((box) => {
+        if (box.collected) return;
+
         const distance = clawTip.distanceTo(box.body.position);
 
-        if (gameState.isGripping && distance < 0.8 && !box.gripped && !box.collected) {
+        if (gameState.isGripping && distance < 0.8 && !box.gripped) {
           box.gripped = true;
-          gameState.grippedBox = box;
         }
 
         if (box.gripped && gameState.isGripping) {
-          // Weak grip - apply small upward force
-          box.body.velocity.y += 0.5; // 약한 힘
+          box.body.velocity.y += 0.5;
           box.body.position.x += (gameState.clawPosition.x - box.body.position.x) * 0.05;
           box.body.position.z += (gameState.clawPosition.z - box.body.position.z) * 0.05;
         } else {
@@ -424,21 +570,40 @@
       }
     }
 
+    function createLastOneEffect() {
+      const effect = document.createElement('div');
+      effect.className = 'lastOneEffect';
+      effect.textContent = '✨ LAST ONE! ✨';
+      document.body.appendChild(effect);
+
+      setTimeout(() => effect.remove(), 800);
+    }
+
     function playSound(type) {
-      // AD_SLOT: 사운드 시스템 (추후 Howler.js 통합)
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioContext.createOscillator();
-      const gain = audioContext.createGain();
+      // AD_SLOT: 사운드 시스템 (추후 Howler.js)
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
 
-      osc.connect(gain);
-      gain.connect(audioContext.destination);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
 
-      if (type === 'success') {
-        osc.frequency.value = 800;
-        gain.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.2);
+        if (type === 'success') {
+          osc.frequency.value = 800;
+          gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          osc.start(audioContext.currentTime);
+          osc.stop(audioContext.currentTime + 0.2);
+        } else if (type === 'lastOne') {
+          osc.frequency.value = 1200;
+          gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+          osc.start(audioContext.currentTime);
+          osc.stop(audioContext.currentTime + 0.4);
+        }
+      } catch (e) {
+        // Audio not available
       }
     }
 
@@ -465,17 +630,14 @@
         return;
       }
 
-      // Update physics
       world.step(1 / 60);
 
-      // Update time
       gameState.time -= deltaTime;
       if (gameState.time <= 0) {
         gameState.time = 0;
         endGame();
       }
 
-      // Update claw
       clawGroup.position.copy(gameState.clawPosition);
       clawGroup.rotation.y = gameState.clawRotation;
 
@@ -487,27 +649,27 @@
       gameState.clawDepth = Math.max(0, Math.min(1, gameState.clawDepth));
       gameState.clawPosition.y = 5 - gameState.clawDepth * 3;
 
-      // Update boxes
       updateClawGrip();
+
       boxes.forEach((box) => {
-        box.mesh.position.copy(box.body.position);
-        box.mesh.quaternion.copy(box.body.quaternion);
+        if (!box.collected) {
+          box.mesh.position.copy(box.body.position);
+          box.mesh.quaternion.copy(box.body.quaternion);
+        }
       });
 
       checkBoxCollection();
 
-      // Update UI
       document.getElementById('timeLeft').textContent = Math.ceil(gameState.time);
       document.getElementById('score').textContent = gameState.score;
+      document.getElementById('boxLeft').textContent = gameState.boxesLeft;
 
       renderer.render(scene, camera);
     }
 
     animate();
 
-    // ============================================
     // Responsive
-    // ============================================
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
