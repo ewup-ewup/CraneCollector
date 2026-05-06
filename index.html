@@ -2,76 +2,84 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#1a1a1a">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Crane Collector</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: white; }
-    #canvas { display: block; width: 100%; height: 100%; }
-    .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); display: none; z-index: 20; align-items: center; justify-content: center; flex-direction: column; }
+    body { background: #1a1a1a; font-family: -apple-system, sans-serif; color: white; width: 100%; height: 100vh; overflow: hidden; }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; z-index: 100; align-items: center; justify-content: center; flex-direction: column; }
     .modal.show { display: flex; }
-    .modal-content { text-align: center; padding: 24px; max-width: 400px; }
-    h1 { font-size: 48px; margin-bottom: 24px; color: #ffd700; }
-    h2 { font-size: 32px; margin-bottom: 24px; }
-    button { padding: 14px 24px; background: #ffd700; color: #1a1a1a; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin: 8px; }
+    .modal-content { text-align: center; padding: 24px; }
+
+    h1 { font-size: 48px; color: #ffd700; margin: 24px 0; }
+    h2 { font-size: 32px; margin: 24px 0; }
+
+    .stat { margin: 16px 0; font-size: 18px; }
+    .stat-label { color: rgba(255,255,255,0.6); font-size: 14px; }
+    .stat-value { color: #ffd700; font-weight: bold; font-size: 28px; }
+
+    button { padding: 14px 28px; background: #ffd700; color: #1a1a1a; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; margin: 8px; }
     button:active { transform: scale(0.95); }
-    .stat { margin: 12px 0; font-size: 16px; }
-    .stat-label { color: rgba(255,255,255,0.7); font-size: 14px; }
-    .stat-value { color: #ffd700; font-weight: bold; }
-    #ui { position: fixed; top: 16px; left: 16px; right: 16px; z-index: 10; font-size: 14px; }
-    #ui.hidden { display: none; }
-    #controls { position: fixed; bottom: 16px; left: 16px; right: 16px; display: flex; gap: 12px; z-index: 10; }
-    #controls.hidden { display: none; }
-    #controls button { flex: 1; }
-    .particle { position: fixed; pointer-events: none; width: 8px; height: 8px; background: #ffd700; border-radius: 50%; box-shadow: 0 0 10px #ffd700; }
+
+    #ui { position: fixed; top: 12px; left: 12px; z-index: 10; font-size: 14px; display: none; }
+    #ui.show { display: block; }
+
+    #controls { position: fixed; bottom: 12px; left: 12px; right: 12px; display: none; gap: 12px; z-index: 10; }
+    #controls.show { display: flex; }
+    #controls button { flex: 1; padding: 12px; }
   </style>
 </head>
 <body>
+  <canvas></canvas>
+
   <div id="ui">
-    <div>Time: <span id="timeLeft">30</span>s | Score: <span id="score">0</span></div>
-    <div style="font-size: 12px; margin-top: 4px;">Boxes: <span id="boxLeft">8</span>/8</div>
+    <div>⏱ <span id="timeLeft">30</span>s | 📊 <span id="score">0</span></div>
+    <div style="margin-top: 4px; font-size: 12px;">📦 <span id="boxLeft">8</span>/8</div>
   </div>
 
   <div id="controls">
-    <button id="downBtn">Lower</button>
-    <button id="rotateBtn">Rotate</button>
+    <button id="downBtn">⬇ Lower</button>
+    <button id="rotateBtn">🔄 Rotate</button>
   </div>
 
   <div id="mainMenu" class="modal show">
     <div class="modal-content">
       <h1>🎮 Crane Collector</h1>
+      <p style="color: rgba(255,255,255,0.7); margin-bottom: 32px;">橋渡し式 인형뽑기</p>
+
       <div class="stat">
-        <div class="stat-label">Best Score</div>
+        <div class="stat-label">🏆 Best Score</div>
         <div class="stat-value" id="bestScore">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Total Plays</div>
+        <div class="stat-label">📈 Total Plays</div>
         <div class="stat-value" id="totalPlays">0</div>
       </div>
-      <button id="playBtn" style="margin-top: 32px; padding: 16px 32px; font-size: 18px;">▶ START</button>
+
+      <button id="playBtn" style="margin-top: 40px; padding: 16px 40px; font-size: 18px;">▶ START GAME</button>
     </div>
   </div>
 
   <div id="gameOverModal" class="modal">
     <div class="modal-content">
-      <h2>Game Over</h2>
+      <h2>🎮 Game Over</h2>
       <div class="stat">
         <div class="stat-label">Your Score</div>
         <div class="stat-value" id="finalScore">0</div>
       </div>
-      <button id="playAgainBtn">Play Again</button>
-      <button id="menuBtn">Menu</button>
+      <div style="margin-top: 32px;">
+        <button id="playAgainBtn">🔄 Play Again</button>
+        <button id="menuBtn">⬅ Menu</button>
+      </div>
     </div>
   </div>
 
-  <script async src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
-  <script async src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"></script>
 
   <script>
-    // Game state
     const game = {
       score: 0,
       time: 30,
@@ -82,52 +90,40 @@
       }
     };
 
-    // Wait for libraries to load
-    function startGame() {
-      if (!window.THREE || !window.CANNON) {
-        console.warn('Libraries loading...');
-        setTimeout(startGame, 100);
-        return;
-      }
-
-      game.playing = true;
-      game.score = 0;
-      game.time = 30;
-
-      document.getElementById('mainMenu').classList.remove('show');
-      document.getElementById('ui').classList.remove('hidden');
-      document.getElementById('controls').classList.remove('hidden');
-
-      initScene();
-    }
+    let scene, camera, renderer, world, clawGroup, boxes = [];
 
     function initScene() {
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x2a2a3e);
+      const canvas = document.querySelector('canvas');
 
-      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      // Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x2a2a3e);
+      scene.fog = new THREE.Fog(0x2a2a3e, 50, 100);
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(0, 8, 12);
       camera.lookAt(0, 4, 0);
 
-      const canvas = document.querySelector('canvas');
-      if (!canvas) {
-        const newCanvas = document.createElement('canvas');
-        document.body.insertBefore(newCanvas, document.body.firstChild);
-      }
-
-      const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('canvas') || undefined, antialias: true });
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
-      document.body.insertBefore(renderer.domElement, document.body.firstChild);
+      renderer.shadowMap.enabled = true;
 
       // Lights
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
       const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
       dirLight.position.set(10, 15, 10);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
       scene.add(dirLight);
 
       // Physics
-      const world = new window.CANNON.World();
+      world = new CANNON.World();
       world.gravity.set(0, -9.82, 0);
 
       // Floor
@@ -136,63 +132,85 @@
       const floorMesh = new THREE.Mesh(floorGeo, floorMat);
       floorMesh.rotation.x = -Math.PI / 2;
       floorMesh.position.y = -0.5;
+      floorMesh.receiveShadow = true;
       scene.add(floorMesh);
 
-      const floorBody = new window.CANNON.Body({ mass: 0, shape: new window.CANNON.Plane() });
-      floorBody.quaternion.setFromAxisAngle(new window.CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+      const floorBody = new CANNON.Body({ mass: 0 });
+      const floorShape = new CANNON.Plane();
+      floorBody.addShape(floorShape);
+      floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
       world.addBody(floorBody);
 
-      // Bars
+      // Bars (두 봉)
       const barGeo = new THREE.CylinderGeometry(0.15, 0.15, 8, 16);
-      const barMat = new THREE.MeshStandardMaterial({ color: 0xffd700 });
+      const barMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8 });
+
       const bar1 = new THREE.Mesh(barGeo, barMat);
       bar1.position.set(-2, 2, 0);
       bar1.rotation.z = Math.PI / 2;
+      bar1.castShadow = true;
       scene.add(bar1);
 
-      const bar2 = bar1.clone();
+      const bar2 = new THREE.Mesh(barGeo, barMat);
       bar2.position.set(2, 2, 0);
+      bar2.rotation.z = Math.PI / 2;
+      bar2.castShadow = true;
       scene.add(bar2);
 
       // Claw
-      const clawGroup = new THREE.Group();
+      clawGroup = new THREE.Group();
       scene.add(clawGroup);
 
-      const clawArm = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), new THREE.MeshStandardMaterial({ color: 0xff6b6b }));
-      clawArm.position.y = -1.5;
-      clawGroup.add(clawArm);
+      const armGeo = new THREE.BoxGeometry(0.3, 3, 0.3);
+      const armMat = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+      const arm = new THREE.Mesh(armGeo, armMat);
+      arm.position.y = -1.5;
+      arm.castShadow = true;
+      clawGroup.add(arm);
 
       const fingerGeo = new THREE.BoxGeometry(0.3, 0.5, 1);
       const fingerMat = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+
       const fingerL = new THREE.Mesh(fingerGeo, fingerMat);
       fingerL.position.set(-0.4, -3.5, 0);
+      fingerL.castShadow = true;
       clawGroup.add(fingerL);
 
       const fingerR = new THREE.Mesh(fingerGeo, fingerMat);
       fingerR.position.set(0.4, -3.5, 0);
+      fingerR.castShadow = true;
       clawGroup.add(fingerR);
 
       // Boxes
-      const boxes = [];
       const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-      const boxMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+      const boxMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.3 });
 
       for (let i = 0; i < 8; i++) {
         const mesh = new THREE.Mesh(boxGeo, boxMat.clone());
-        mesh.position.set((Math.random() - 0.5) * 2.5, 2.5 + Math.random() * 2, (Math.random() - 0.5) * 1.5);
+        mesh.position.set(
+          (Math.random() - 0.5) * 2.5,
+          2.5 + Math.random() * 2,
+          (Math.random() - 0.5) * 1.5
+        );
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         scene.add(mesh);
 
-        const body = new window.CANNON.Body({ mass: 1, shape: new window.CANNON.Box(new window.CANNON.Vec3(0.5, 0.5, 0.5)) });
+        const body = new CANNON.Body({ mass: 1, linearDamping: 0.3, angularDamping: 0.3 });
+        const shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
+        body.addShape(shape);
         body.position.copy(mesh.position);
         world.addBody(body);
 
-        boxes.push({ mesh, body, collected: false, gripped: false });
+        boxes.push({ mesh, body, collected: false });
       }
 
-      // Input
+      // Animation
       let clawX = 0, clawZ = 0, clawDepth = 0, clawRotation = 0, gripping = false;
       let touchStartX = 0, touchStartY = 0;
+      let lastTime = Date.now();
 
+      // Input
       document.addEventListener('touchstart', (e) => {
         if (!game.playing) return;
         touchStartX = e.touches[0].clientX;
@@ -202,37 +220,37 @@
       document.addEventListener('touchmove', (e) => {
         if (!game.playing) return;
         e.preventDefault();
-        clawX += (e.touches[0].clientX - touchStartX) * 0.01;
-        clawZ -= (e.touches[0].clientY - touchStartY) * 0.01;
+        const dx = (e.touches[0].clientX - touchStartX) * 0.01;
+        const dy = (e.touches[0].clientY - touchStartY) * 0.01;
+        clawX += dx;
+        clawZ -= dy;
         clawX = Math.max(-3.5, Math.min(3.5, clawX));
         clawZ = Math.max(-3.5, Math.min(3.5, clawZ));
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
       });
 
-      document.getElementById('downBtn').onclick = () => gripping = !gripping;
-      document.getElementById('rotateBtn').onclick = () => clawRotation += Math.PI / 4;
-
-      // Game loop
-      let lastTime = Date.now();
+      document.getElementById('downBtn').onclick = () => { if (game.playing) gripping = !gripping; };
+      document.getElementById('rotateBtn').onclick = () => { if (game.playing) clawRotation += Math.PI / 4; };
 
       function animate() {
         requestAnimationFrame(animate);
-
-        const now = Date.now();
-        const delta = (now - lastTime) / 1000;
-        lastTime = now;
 
         if (!game.playing) {
           renderer.render(scene, camera);
           return;
         }
 
-        // Update time
+        const now = Date.now();
+        const delta = (now - lastTime) / 1000;
+        lastTime = now;
+
+        // Time
         game.time -= delta;
         if (game.time <= 0) {
           game.time = 0;
           endGame();
+          return;
         }
 
         // Physics
@@ -248,15 +266,13 @@
 
         // Boxes
         boxes.forEach(b => {
-          if (!b.collected) {
-            b.mesh.position.copy(b.body.position);
-            b.mesh.quaternion.copy(b.body.quaternion);
+          b.mesh.position.copy(b.body.position);
+          b.mesh.quaternion.copy(b.body.quaternion);
 
-            if (b.body.position.y < -5) {
-              b.collected = true;
-              game.score += 100;
-              document.getElementById('boxLeft').textContent = boxes.filter(x => !x.collected).length;
-            }
+          if (!b.collected && b.body.position.y < -5) {
+            b.collected = true;
+            game.score += 100;
+            document.getElementById('boxLeft').textContent = boxes.filter(x => !x.collected).length;
           }
         });
 
@@ -268,12 +284,34 @@
       }
 
       animate();
+    }
 
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
+    function startGame() {
+      if (!window.THREE || !window.CANNON) {
+        setTimeout(startGame, 100);
+        return;
+      }
+
+      game.playing = true;
+      game.score = 0;
+      game.time = 30;
+
+      document.getElementById('mainMenu').classList.remove('show');
+      document.getElementById('gameOverModal').classList.remove('show');
+      document.getElementById('ui').classList.add('show');
+      document.getElementById('controls').classList.add('show');
+
+      // Reset boxes
+      if (scene) {
+        boxes.forEach(b => {
+          scene.remove(b.mesh);
+          world.removeBody(b.body);
+        });
+        boxes = [];
+        document.getElementById('boxLeft').textContent = '8';
+      }
+
+      if (!scene) initScene();
     }
 
     function endGame() {
@@ -288,8 +326,8 @@
 
       document.getElementById('finalScore').textContent = game.score;
       document.getElementById('gameOverModal').classList.add('show');
-      document.getElementById('ui').classList.add('hidden');
-      document.getElementById('controls').classList.add('hidden');
+      document.getElementById('ui').classList.remove('show');
+      document.getElementById('controls').classList.remove('show');
     }
 
     function showMenu() {
@@ -297,15 +335,24 @@
       document.getElementById('totalPlays').textContent = game.stats.totalPlays;
       document.getElementById('mainMenu').classList.add('show');
       document.getElementById('gameOverModal').classList.remove('show');
+      document.getElementById('ui').classList.remove('show');
+      document.getElementById('controls').classList.remove('show');
     }
 
-    // Event listeners
+    // Init
     document.getElementById('playBtn').onclick = startGame;
     document.getElementById('playAgainBtn').onclick = startGame;
     document.getElementById('menuBtn').onclick = showMenu;
 
-    // Initialize
     showMenu();
+
+    window.addEventListener('resize', () => {
+      if (camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    });
   </script>
 </body>
 </html>
