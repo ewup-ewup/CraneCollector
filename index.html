@@ -2,171 +2,894 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a1a">
   <title>Crane Collector</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a1a; color: white; font-family: Arial, sans-serif; width: 100vw; height: 100vh; overflow: hidden; }
-    #menu { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; flex-direction: column; }
-    #menu.hidden { display: none; }
-    #game { display: none; width: 100%; height: 100%; position: relative; }
-    #game.show { display: block; }
-    canvas { display: block; width: 100%; height: 100%; }
-    #info { position: fixed; top: 10px; left: 10px; z-index: 10; font-size: 14px; }
-    #info.hidden { display: none; }
-    #buttons { position: fixed; bottom: 10px; left: 10px; right: 10px; z-index: 10; display: flex; gap: 10px; }
-    #buttons.hidden { display: none; }
-    button { padding: 10px 20px; background: #ffd700; color: #000; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; }
-    h1 { font-size: 48px; color: #ffd700; margin: 20px; }
-    .stat { margin: 20px; font-size: 20px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { background: #1a1a1a; color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+
+    /* 메뉴 */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+    .modal.show { display: flex; }
+    h1 { font-size: 42px; color: #ffd700; margin-bottom: 12px; text-align: center; }
+    h2 { font-size: 32px; margin-bottom: 20px; }
+    .subtitle { color: rgba(255,255,255,0.6); margin-bottom: 32px; font-size: 14px; }
+    .stat { margin: 12px 0; text-align: center; }
+    .stat-label { color: rgba(255,255,255,0.6); font-size: 13px; }
+    .stat-value { color: #ffd700; font-size: 28px; font-weight: bold; margin-top: 4px; }
+    button.primary { padding: 16px 40px; background: linear-gradient(135deg, #ffd700, #ffc500); color: #1a1a1a; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 18px; margin-top: 32px; box-shadow: 0 4px 12px rgba(255,215,0,0.3); }
+    button.primary:active { transform: scale(0.96); }
+    button.secondary { padding: 12px 24px; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 12px; }
+
+    /* 게임 화면 */
+    #gameRoot { width: 100%; height: 100%; display: none; flex-direction: column; }
+    #gameRoot.show { display: flex; }
+
+    #topBar { height: 50px; background: linear-gradient(180deg, #2a2a3e, #1a1a2e); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 13px; flex-shrink: 0; border-bottom: 2px solid #444; }
+    #topBar .item { display: flex; align-items: center; gap: 6px; }
+    #topBar .icon { font-size: 16px; }
+    #topBar .value { color: #ffd700; font-weight: bold; }
+
+    #gameView { flex: 1; position: relative; background: linear-gradient(180deg, #ffe5cc, #ffd4a8); overflow: hidden; min-height: 200px; }
+    #mainCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    #miniMap { position: absolute; top: 12px; right: 12px; width: 100px; height: 80px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 4px; }
+    #miniMapLabel { position: absolute; top: -16px; right: 0; font-size: 10px; color: rgba(255,255,255,0.7); }
+    #miniCanvas { width: 100%; height: 100%; }
+
+    #phaseIndicator { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 16px; font-size: 12px; color: #ffd700; font-weight: 600; }
+
+    /* 컨트롤 패널 */
+    #controlPanel { background: linear-gradient(180deg, #d4d4d4, #a8a8a8); padding: 20px 16px; display: flex; align-items: center; justify-content: center; gap: 24px; flex-shrink: 0; height: 180px; border-top: 4px solid #888; box-shadow: inset 0 4px 8px rgba(0,0,0,0.2); }
+
+    .ufoButton { width: 110px; height: 110px; border-radius: 50%; border: 6px solid #2a2a2a; cursor: pointer; position: relative; transition: all 0.1s; box-shadow: 0 8px 0 #2a2a2a, 0 12px 16px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 900; }
+    .ufoButton:active, .ufoButton.active { transform: translateY(6px); box-shadow: 0 2px 0 #2a2a2a, 0 4px 8px rgba(0,0,0,0.2); }
+    .ufoButton.disabled { opacity: 0.4; pointer-events: none; }
+
+    #button1 { background: radial-gradient(circle at 30% 30%, #ffffff, #c8c8c8); color: #ff6b9d; }
+    #button1.active { background: radial-gradient(circle at 30% 30%, #ffe6f0, #ff9ec7); }
+    #button2 { background: radial-gradient(circle at 30% 30%, #fff8a0, #f0c020); color: #ff8c00; }
+    #button2.active { background: radial-gradient(circle at 30% 30%, #ffd700, #ff8c00); }
+
+    .buttonLabel { font-size: 14px; margin-top: 4px; color: #2a2a2a; }
+    .buttonNumber { font-size: 36px; line-height: 1; }
+    .buttonArrow { font-size: 18px; }
+
+    .controlHint { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 10px; color: rgba(0,0,0,0.5); }
+
+    #menuButton { position: fixed; top: 12px; left: 12px; width: 32px; height: 32px; background: rgba(0,0,0,0.7); border: none; border-radius: 50%; color: white; font-size: 14px; cursor: pointer; z-index: 50; display: none; align-items: center; justify-content: center; padding: 0; margin: 0; }
+    #menuButton.show { display: flex; }
+
+    /* 등급 공개 모달 */
+    #revealModal .modal-content { text-align: center; }
+    .gradeBox { width: 180px; height: 180px; border: 4px solid #ffd700; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 84px; font-weight: 900; margin: 0 auto 20px; animation: pulse 0.6s ease-out; }
+    @keyframes pulse { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+    .gradeLabel { font-size: 22px; margin-bottom: 8px; }
+    .gradePoints { font-size: 18px; color: #ffd700; margin-bottom: 24px; }
+
+    .lastOneBanner { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 56px; color: #ffd700; text-shadow: 0 0 30px #ffd700; pointer-events: none; z-index: 200; animation: lastOne 1s ease-out forwards; font-weight: 900; }
+    @keyframes lastOne { 0% { transform: translate(-50%, -50%) scale(0); opacity: 1; } 50% { transform: translate(-50%, -50%) scale(1.3); } 100% { transform: translate(-50%, -50%) scale(2); opacity: 0; } }
   </style>
 </head>
 <body>
-  <div id="menu">
-    <h1>🎮 Crane Collector</h1>
-    <div class="stat">Best: <span id="best">0</span></div>
-    <div class="stat">Plays: <span id="plays">0</span></div>
-    <button onclick="playGame()">START GAME</button>
+  <!-- 메인 메뉴 -->
+  <div id="mainMenu" class="modal show">
+    <h1>🎮 CRANE COLLECTOR</h1>
+    <p class="subtitle">UFO 캐처 시뮬레이터</p>
+    <div class="stat">
+      <div class="stat-label">🏆 Best Score</div>
+      <div class="stat-value" id="bestScore">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">📈 Total Plays</div>
+      <div class="stat-value" id="totalPlays">0</div>
+    </div>
+    <button class="primary" id="startBtn">▶ START GAME</button>
   </div>
 
-  <div id="game">
-    <canvas></canvas>
-    <div id="info">
-      <div>Time: <span id="time">30</span>s | Score: <span id="score">0</span></div>
-      <div style="font-size: 12px;">Boxes: <span id="boxes">8</span>/8</div>
+  <!-- 게임 화면 -->
+  <div id="gameRoot">
+    <div id="topBar">
+      <div class="item">⏱ <span id="timeLeft" class="value">30</span>s</div>
+      <div class="item">📊 <span id="scoreUI" class="value">0</span></div>
+      <div class="item">📦 <span id="boxLeftUI" class="value">8</span>/8</div>
     </div>
-    <div id="buttons">
-      <button onclick="toggleGrip()">Lower</button>
-      <button onclick="rotateClw()">Rotate</button>
+    <div id="gameView">
+      <canvas id="mainCanvas"></canvas>
+      <div id="phaseIndicator">대기 중</div>
+      <div id="miniMap">
+        <div id="miniMapLabel">위에서 본 모습</div>
+        <canvas id="miniCanvas"></canvas>
+      </div>
     </div>
+    <div id="controlPanel">
+      <button class="ufoButton" id="button1">
+        <span class="buttonNumber">1</span>
+        <span class="buttonArrow">←→</span>
+      </button>
+      <button class="ufoButton disabled" id="button2">
+        <span class="buttonNumber">2</span>
+        <span class="buttonArrow">↑↓</span>
+      </button>
+    </div>
+  </div>
+
+  <button id="menuButton">✕</button>
+
+  <!-- 등급 공개 -->
+  <div id="revealModal" class="modal">
+    <div>
+      <div class="gradeBox" id="gradeBox">F</div>
+      <div class="gradeLabel" id="gradeLabel">Common</div>
+      <div class="gradePoints" id="gradePoints">+10 pts</div>
+      <button class="primary" id="continueBtn">계속</button>
+    </div>
+  </div>
+
+  <!-- 게임 오버 -->
+  <div id="gameOverModal" class="modal">
+    <h2>Game Over</h2>
+    <div class="stat">
+      <div class="stat-label">Final Score</div>
+      <div class="stat-value" id="finalScore">0</div>
+    </div>
+    <div class="stat" id="newRecordLabel" style="color:#ff6b6b; display:none;">🎉 신기록!</div>
+    <button class="primary" id="playAgainBtn">▶ 다시 플레이</button>
+    <button class="secondary" id="backToMenuBtn">메뉴로</button>
   </div>
 
   <script>
-    let stats = {
-      best: parseInt(localStorage.getItem('best') || '0'),
-      plays: parseInt(localStorage.getItem('plays') || '0')
+    // ===========================
+    // 상태
+    // ===========================
+    const stats = {
+      bestScore: parseInt(localStorage.getItem('bestScore') || '0'),
+      totalPlays: parseInt(localStorage.getItem('totalPlays') || '0'),
     };
 
-    let game = {
-      score: 0,
-      time: 30,
-      running: false
+    const PHASES = {
+      IDLE: 'idle',
+      MOVING_X: 'movingX',
+      WAIT_Z: 'waitZ',
+      MOVING_Z: 'movingZ',
+      DESCENDING: 'descending',
+      GRIPPING: 'gripping',
+      ASCENDING: 'ascending',
+      RETURNING: 'returning',
+      RESULT: 'result',
+      REVEAL: 'reveal',
     };
 
-    function showMenu() {
-      document.getElementById('menu').classList.remove('hidden');
-      document.getElementById('game').classList.remove('show');
-      document.getElementById('info').classList.add('hidden');
-      document.getElementById('buttons').classList.add('hidden');
-      document.getElementById('best').textContent = stats.best;
-      document.getElementById('plays').textContent = stats.plays;
+    const GRADES = {
+      F: { label: 'Common', color: '#888', points: 10, prob: 0.40 },
+      E: { label: 'Uncommon', color: '#4ecdc4', points: 25, prob: 0.30 },
+      D: { label: 'Rare', color: '#45b7d1', points: 50, prob: 0.15 },
+      C: { label: 'Epic', color: '#9d4edd', points: 100, prob: 0.10 },
+      B: { label: 'Legend', color: '#ffa502', points: 250, prob: 0.04 },
+      A: { label: 'Mythic', color: '#ffd700', points: 500, prob: 0.01 },
+    };
+
+    function pickGrade(boost = 0) {
+      const r = Math.random() - boost;
+      let cum = 0;
+      for (const g of ['F','E','D','C','B','A']) {
+        cum += GRADES[g].prob;
+        if (r < cum) return g;
+      }
+      return 'A';
     }
 
-    function playGame() {
-      document.getElementById('menu').classList.add('hidden');
-      document.getElementById('game').classList.add('show');
-      document.getElementById('info').classList.remove('hidden');
-      document.getElementById('buttons').classList.remove('hidden');
+    // 게임 좌표계 (월드 단위)
+    // X: -5 ~ 5 (좌우)
+    // Z: -3 ~ 3 (앞뒤)
+    // Y: 0 ~ -5 (집게 하강 깊이)
+    // 봉: Z = -1.5, Z = 1.5 (사이 간격 3)
+    // 봉 위에 박스가 가로로 놓임 (박스 Z길이 = 3.5, 봉 양쪽으로 약간 걸쳐짐)
 
+    const game = {
+      score: 0,
+      time: 30,
+      running: false,
+      phase: PHASES.IDLE,
+      phaseTime: 0,
+      attemptCount: 0,
+      collectedThisGame: 0,
+
+      claw: {
+        x: 0,
+        z: -1.5,
+        y: 0,
+        targetX: 0,
+        targetZ: 0,
+        gripped: null,
+        gripOpen: 1.0, // 0=닫힘, 1=열림
+      },
+
+      boxes: [],
+      bars: { z1: -1.5, z2: 1.5, length: 8 },
+    };
+
+    // ===========================
+    // 박스 생성
+    // ===========================
+    function createBoxes() {
+      game.boxes = [];
+      const totalCount = 8;
+      for (let i = 0; i < totalCount; i++) {
+        const x = -3 + (i / (totalCount - 1)) * 6 + (Math.random() - 0.5) * 0.4;
+        game.boxes.push({
+          id: i,
+          x: x,
+          z: 0,                  // 봉 사이 중앙에 가로로 놓임
+          y: 0,                  // 봉 위
+          rotZ: 0,               // 회전 (봉에서 떨어지는 시뮬레이션)
+          width: 1.0,            // X 방향 폭
+          depth: 3.5,            // Z 방향 길이 (봉 양쪽 걸침)
+          height: 0.8,
+          vx: 0, vy: 0, vz: 0, vrotZ: 0,
+          onBars: true,          // 봉 위에 있는가
+          fallen: false,         // 봉 사이로 떨어졌는가
+          collected: false,      // 획득 완료
+          grade: pickGrade(),
+          isLastOne: i === totalCount - 1,
+          color: '#cccccc',
+        });
+      }
+    }
+
+    // ===========================
+    // Canvas 설정
+    // ===========================
+    let mainCanvas, mainCtx, miniCanvas, miniCtx;
+    let canvasW = 0, canvasH = 0;
+
+    function setupCanvas() {
+      mainCanvas = document.getElementById('mainCanvas');
+      mainCtx = mainCanvas.getContext('2d');
+      miniCanvas = document.getElementById('miniCanvas');
+      miniCtx = miniCanvas.getContext('2d');
+      resizeCanvas();
+    }
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = mainCanvas.getBoundingClientRect();
+      mainCanvas.width = rect.width * dpr;
+      mainCanvas.height = rect.height * dpr;
+      mainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      canvasW = rect.width;
+      canvasH = rect.height;
+
+      const miniRect = miniCanvas.getBoundingClientRect();
+      miniCanvas.width = miniRect.width * dpr;
+      miniCanvas.height = miniRect.height * dpr;
+      miniCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // 월드 좌표 → 화면 좌표 (정면 뷰)
+    // 정면뷰: X축 그대로, Y축 그대로, Z축은 깊이감으로 표현
+    function worldToScreen(x, y, z) {
+      const cx = canvasW / 2;
+      const cy = canvasH * 0.5;
+      const scale = Math.min(canvasW, canvasH) * 0.10;
+      // 원근감: 뒤에 있을수록 작게, 위로
+      const perspective = 1 - z * 0.05;
+      return {
+        x: cx + x * scale * perspective,
+        y: cy - y * scale - z * scale * 0.3,
+        scale: scale * perspective,
+      };
+    }
+
+    // ===========================
+    // 그리기
+    // ===========================
+    function drawScene() {
+      // 배경
+      mainCtx.fillStyle = '#ffe5cc';
+      mainCtx.fillRect(0, 0, canvasW, canvasH);
+
+      // 바닥 (그라데이션)
+      const grad = mainCtx.createLinearGradient(0, canvasH * 0.7, 0, canvasH);
+      grad.addColorStop(0, '#d4a373');
+      grad.addColorStop(1, '#b08555');
+      mainCtx.fillStyle = grad;
+      mainCtx.fillRect(0, canvasH * 0.7, canvasW, canvasH * 0.3);
+
+      // 봉 두 개 (가로로 X축 방향)
+      drawBars();
+
+      // 박스들 (Z 정렬: 뒤에 있는 것부터)
+      const sortedBoxes = [...game.boxes].sort((a, b) => b.z - a.z);
+      for (const box of sortedBoxes) {
+        if (!box.collected) drawBox(box);
+      }
+
+      // 집게
+      drawClaw();
+
+      // UI 가이드
+      drawGuides();
+    }
+
+    function drawBars() {
+      const barCount = 2;
+      const zPositions = [game.bars.z1, game.bars.z2];
+      for (const z of zPositions) {
+        const left = worldToScreen(-game.bars.length / 2, 0, z);
+        const right = worldToScreen(game.bars.length / 2, 0, z);
+        // 봉 그림자
+        mainCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+        mainCtx.lineWidth = 12;
+        mainCtx.beginPath();
+        mainCtx.moveTo(left.x, left.y + 4);
+        mainCtx.lineTo(right.x, right.y + 4);
+        mainCtx.stroke();
+        // 봉
+        const barGrad = mainCtx.createLinearGradient(0, left.y - 5, 0, left.y + 5);
+        barGrad.addColorStop(0, '#ffe066');
+        barGrad.addColorStop(0.5, '#ffd700');
+        barGrad.addColorStop(1, '#cca300');
+        mainCtx.strokeStyle = barGrad;
+        mainCtx.lineWidth = 8;
+        mainCtx.beginPath();
+        mainCtx.moveTo(left.x, left.y);
+        mainCtx.lineTo(right.x, right.y);
+        mainCtx.stroke();
+      }
+    }
+
+    function drawBox(box) {
+      const center = worldToScreen(box.x, box.y, box.z);
+      const w = box.width * center.scale;
+      const h = box.height * center.scale;
+
+      mainCtx.save();
+      mainCtx.translate(center.x, center.y);
+      mainCtx.rotate(box.rotZ);
+
+      // 그림자
+      mainCtx.fillStyle = 'rgba(0,0,0,0.2)';
+      mainCtx.fillRect(-w/2 + 3, -h/2 + 3, w, h);
+
+      // 박스 본체
+      mainCtx.fillStyle = box.color;
+      mainCtx.fillRect(-w/2, -h/2, w, h);
+
+      // 테두리
+      mainCtx.strokeStyle = '#666';
+      mainCtx.lineWidth = 2;
+      mainCtx.strokeRect(-w/2, -h/2, w, h);
+
+      // 박스 ?마크 (등급 미공개)
+      mainCtx.fillStyle = '#888';
+      mainCtx.font = `bold ${h * 0.5}px sans-serif`;
+      mainCtx.textAlign = 'center';
+      mainCtx.textBaseline = 'middle';
+      mainCtx.fillText('?', 0, 0);
+
+      mainCtx.restore();
+    }
+
+    function drawClaw() {
+      const c = game.claw;
+      const top = worldToScreen(c.x, 5, c.z);
+      const tip = worldToScreen(c.x, c.y, c.z);
+
+      // 와이어
+      mainCtx.strokeStyle = '#444';
+      mainCtx.lineWidth = 2;
+      mainCtx.beginPath();
+      mainCtx.moveTo(top.x, 0);
+      mainCtx.lineTo(top.x, top.y);
+      mainCtx.stroke();
+
+      // 캐리지 (위쪽 박스)
+      mainCtx.fillStyle = '#ff6b6b';
+      mainCtx.fillRect(top.x - 24, top.y - 12, 48, 24);
+      mainCtx.strokeStyle = '#cc4444';
+      mainCtx.lineWidth = 2;
+      mainCtx.strokeRect(top.x - 24, top.y - 12, 48, 24);
+
+      // 와이어 (캐리지 → 집게)
+      mainCtx.strokeStyle = '#666';
+      mainCtx.lineWidth = 2;
+      mainCtx.beginPath();
+      mainCtx.moveTo(top.x, top.y + 12);
+      mainCtx.lineTo(tip.x, tip.y - 30);
+      mainCtx.stroke();
+
+      // 집게 본체
+      const clawSize = 30;
+      mainCtx.fillStyle = '#ff6b6b';
+      mainCtx.beginPath();
+      mainCtx.arc(tip.x, tip.y - 30, 16, 0, Math.PI * 2);
+      mainCtx.fill();
+      mainCtx.strokeStyle = '#cc4444';
+      mainCtx.lineWidth = 2;
+      mainCtx.stroke();
+
+      // 집게 손가락 (좌우)
+      const openAngle = c.gripOpen * 0.5; // 0 = 닫힘, 0.5 = 열림
+      mainCtx.strokeStyle = '#ff6b6b';
+      mainCtx.lineWidth = 6;
+      mainCtx.lineCap = 'round';
+
+      // 왼쪽 손가락
+      mainCtx.beginPath();
+      mainCtx.moveTo(tip.x - 8, tip.y - 20);
+      const leftFingerEndX = tip.x - 8 - Math.sin(openAngle) * clawSize;
+      const leftFingerEndY = tip.y - 20 + Math.cos(openAngle) * clawSize;
+      mainCtx.lineTo(leftFingerEndX, leftFingerEndY);
+      mainCtx.stroke();
+
+      // 오른쪽 손가락
+      mainCtx.beginPath();
+      mainCtx.moveTo(tip.x + 8, tip.y - 20);
+      const rightFingerEndX = tip.x + 8 + Math.sin(openAngle) * clawSize;
+      const rightFingerEndY = tip.y - 20 + Math.cos(openAngle) * clawSize;
+      mainCtx.lineTo(rightFingerEndX, rightFingerEndY);
+      mainCtx.stroke();
+    }
+
+    function drawGuides() {
+      // 집게 위치를 화면 위쪽에 가이드 라인으로 표시
+      const c = game.claw;
+      const tip = worldToScreen(c.x, c.y, c.z);
+
+      // 가이드 라인 (X 위치 표시)
+      mainCtx.strokeStyle = 'rgba(255,107,107,0.3)';
+      mainCtx.lineWidth = 1;
+      mainCtx.setLineDash([4, 4]);
+      mainCtx.beginPath();
+      mainCtx.moveTo(tip.x, 0);
+      mainCtx.lineTo(tip.x, canvasH);
+      mainCtx.stroke();
+      mainCtx.setLineDash([]);
+    }
+
+    function drawMiniMap() {
+      const w = miniCanvas.width / (window.devicePixelRatio || 1);
+      const h = miniCanvas.height / (window.devicePixelRatio || 1);
+
+      miniCtx.fillStyle = 'rgba(0,0,0,0.4)';
+      miniCtx.fillRect(0, 0, w, h);
+
+      const padX = 8, padY = 8;
+      const mapW = w - padX * 2, mapH = h - padY * 2;
+      const xToPx = (x) => padX + (x + 5) / 10 * mapW;
+      const zToPx = (z) => padY + (z + 3) / 6 * mapH;
+
+      // 봉 두 개
+      miniCtx.strokeStyle = '#ffd700';
+      miniCtx.lineWidth = 2;
+      [game.bars.z1, game.bars.z2].forEach(z => {
+        miniCtx.beginPath();
+        miniCtx.moveTo(xToPx(-game.bars.length / 2), zToPx(z));
+        miniCtx.lineTo(xToPx(game.bars.length / 2), zToPx(z));
+        miniCtx.stroke();
+      });
+
+      // 박스
+      for (const box of game.boxes) {
+        if (box.collected) continue;
+        miniCtx.fillStyle = box.color;
+        miniCtx.fillRect(xToPx(box.x) - 3, zToPx(box.z) - 6, 6, 12);
+      }
+
+      // 집게
+      const c = game.claw;
+      miniCtx.fillStyle = '#ff6b6b';
+      miniCtx.beginPath();
+      miniCtx.arc(xToPx(c.x), zToPx(c.z), 4, 0, Math.PI * 2);
+      miniCtx.fill();
+    }
+
+    // ===========================
+    // 게임 로직
+    // ===========================
+    let lastTime = 0;
+
+    function update(dt) {
+      if (!game.running) return;
+
+      // 시간
+      game.time -= dt;
+      if (game.time <= 0) {
+        game.time = 0;
+        endGame();
+        return;
+      }
+
+      const c = game.claw;
+      game.phaseTime += dt;
+
+      // 집게 X 이동 (1번 버튼 누르고 있을 때 자동 왔다갔다)
+      if (game.phase === PHASES.MOVING_X) {
+        const speed = 2.5;
+        c.x += c.targetX * speed * dt;
+        if (c.x > 4) { c.x = 4; c.targetX = -1; }
+        if (c.x < -4) { c.x = -4; c.targetX = 1; }
+      }
+
+      // 집게 Z 이동 (2번 버튼 누르고 있을 때 자동 왔다갔다)
+      if (game.phase === PHASES.MOVING_Z) {
+        const speed = 2.0;
+        c.z += c.targetZ * speed * dt;
+        if (c.z > 1.5) { c.z = 1.5; c.targetZ = -1; }
+        if (c.z < -1.5) { c.z = -1.5; c.targetZ = 1; }
+      }
+
+      // 자동 하강
+      if (game.phase === PHASES.DESCENDING) {
+        c.y -= 4 * dt;
+        c.gripOpen = 1.0;
+        if (c.y <= -3.2) {
+          c.y = -3.2;
+          game.phase = PHASES.GRIPPING;
+          game.phaseTime = 0;
+          attemptGrip();
+        }
+      }
+
+      // 잡기 (집게 닫힘)
+      if (game.phase === PHASES.GRIPPING) {
+        c.gripOpen = Math.max(0.2, 1.0 - game.phaseTime * 2);
+        if (game.phaseTime >= 0.5) {
+          game.phase = PHASES.ASCENDING;
+          game.phaseTime = 0;
+        }
+      }
+
+      // 상승
+      if (game.phase === PHASES.ASCENDING) {
+        c.y += 4 * dt;
+        // 잡힌 박스도 같이 올라감
+        if (c.gripped) {
+          c.gripped.y = c.y;
+          c.gripped.x = c.x;
+          c.gripped.z = c.z;
+        }
+        if (c.y >= 0) {
+          c.y = 0;
+          game.phase = PHASES.RETURNING;
+          game.phaseTime = 0;
+          // 약한 그립: 50% 확률로 떨어뜨림
+          if (c.gripped && Math.random() < 0.5) {
+            dropGripped();
+          }
+        }
+      }
+
+      // 복귀
+      if (game.phase === PHASES.RETURNING) {
+        const targetX = -4.5;
+        const targetZ = 0;
+        const dx = targetX - c.x;
+        const dz = targetZ - c.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < 0.1) {
+          c.x = targetX;
+          c.z = targetZ;
+          // 박스를 떨어뜨림 (획득)
+          if (c.gripped) {
+            collectBox(c.gripped);
+            c.gripped = null;
+          }
+          c.gripOpen = 1.0;
+          game.phase = PHASES.IDLE;
+          enableButton1();
+        } else {
+          c.x += (dx / dist) * 3 * dt;
+          c.z += (dz / dist) * 3 * dt;
+        }
+      }
+
+      // 떨어지는 박스 시뮬레이션
+      for (const box of game.boxes) {
+        if (box.collected) continue;
+        if (!box.onBars && !box.fallen) {
+          box.vy -= 9.8 * dt;
+          box.y += box.vy * dt;
+          box.x += box.vx * dt;
+          box.z += box.vz * dt;
+          box.rotZ += box.vrotZ * dt;
+
+          // 봉 사이 (z = -1.5 ~ 1.5) 사이로 떨어졌는지 확인
+          if (box.y < -4) {
+            box.fallen = true;
+            // 봉 사이로 떨어진 경우만 획득 가능
+            if (Math.abs(box.z) < 1.4) {
+              setTimeout(() => collectBox(box), 200);
+            } else {
+              // 봉 옆으로 떨어짐 = 실패
+              box.y = -4;
+              box.vy = 0;
+              setTimeout(() => {
+                if (!box.collected) box.collected = true;
+              }, 500);
+            }
+          }
+        }
+      }
+
+      // 페이즈 표시
+      updatePhaseIndicator();
+    }
+
+    function attemptGrip() {
+      const c = game.claw;
+      // 집게 위치에서 가장 가까운 박스 찾기
+      let closest = null;
+      let minDist = Infinity;
+      for (const box of game.boxes) {
+        if (box.collected || !box.onBars) continue;
+        const dx = box.x - c.x;
+        const dz = box.z - c.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < 1.0 && dist < minDist) {
+          closest = box;
+          minDist = dist;
+        }
+      }
+
+      if (closest) {
+        // 약한 집게: 박스를 살짝 들어올리거나 회전시킴
+        const grade = closest.grade;
+        const isHigh = ['A', 'B', 'C'].includes(grade);
+        // 높은 등급일수록 잡기 어려움
+        const gripChance = isHigh ? 0.3 : 0.6;
+
+        if (Math.random() < gripChance) {
+          // 잡았다! 봉에서 떨어트림
+          c.gripped = closest;
+          closest.onBars = false;
+        } else {
+          // 잡지 못했지만 박스를 흔듦 → 봉 사이로 떨어질 가능성
+          closest.x += (Math.random() - 0.5) * 0.3;
+          closest.z += (Math.random() - 0.5) * 0.5;
+          // 박스가 봉 사이 중앙(z=0)에 가까워지면 떨어짐
+          if (Math.abs(closest.z) < 0.3 && Math.random() < 0.4) {
+            closest.onBars = false;
+            closest.vy = 0;
+            closest.vrotZ = (Math.random() - 0.5) * 4;
+          }
+        }
+      }
+    }
+
+    function dropGripped() {
+      const c = game.claw;
+      if (!c.gripped) return;
+      const box = c.gripped;
+      c.gripped = null;
+      box.onBars = false;
+      box.vy = 0;
+      box.vx = (Math.random() - 0.5) * 1;
+      box.vz = (Math.random() - 0.5) * 2;
+      box.vrotZ = (Math.random() - 0.5) * 6;
+    }
+
+    function collectBox(box) {
+      if (box.collected) return;
+      box.collected = true;
+      game.collectedThisGame++;
+      revealGrade(box);
+    }
+
+    function revealGrade(box) {
+      const grade = box.isLastOne ? 'A' : box.grade;
+      const gradeData = GRADES[grade];
+      const points = box.isLastOne ? gradeData.points * 2 : gradeData.points;
+      game.score += points;
+
+      const gradeBoxEl = document.getElementById('gradeBox');
+      gradeBoxEl.textContent = grade;
+      gradeBoxEl.style.borderColor = gradeData.color;
+      gradeBoxEl.style.color = gradeData.color;
+      document.getElementById('gradeLabel').textContent = box.isLastOne ? '🎉 LAST ONE!' : `${grade} - ${gradeData.label}`;
+      document.getElementById('gradePoints').textContent = `+${points} pts`;
+      document.getElementById('revealModal').classList.add('show');
+
+      if (box.isLastOne) {
+        const banner = document.createElement('div');
+        banner.className = 'lastOneBanner';
+        banner.textContent = '✨ LAST ONE! ✨';
+        document.body.appendChild(banner);
+        setTimeout(() => banner.remove(), 1000);
+      }
+    }
+
+    // ===========================
+    // 페이즈 / UI
+    // ===========================
+    function updatePhaseIndicator() {
+      const el = document.getElementById('phaseIndicator');
+      const map = {
+        idle: '대기 중',
+        movingX: '🟢 좌우 이동',
+        waitZ: '➡️ 2번 버튼 누르기',
+        movingZ: '🟢 앞뒤 이동',
+        descending: '⬇️ 집게 하강',
+        gripping: '🤏 집기 시도',
+        ascending: '⬆️ 집게 상승',
+        returning: '↩️ 복귀 중',
+      };
+      el.textContent = map[game.phase] || '';
+    }
+
+    function enableButton1() {
+      document.getElementById('button1').classList.remove('disabled');
+      document.getElementById('button2').classList.add('disabled');
+    }
+
+    function enableButton2() {
+      document.getElementById('button1').classList.add('disabled');
+      document.getElementById('button2').classList.remove('disabled');
+    }
+
+    function disableAllButtons() {
+      document.getElementById('button1').classList.add('disabled');
+      document.getElementById('button2').classList.add('disabled');
+    }
+
+    // ===========================
+    // 입력 처리
+    // ===========================
+    function setupButtons() {
+      const btn1 = document.getElementById('button1');
+      const btn2 = document.getElementById('button2');
+
+      const press1Start = (e) => {
+        e.preventDefault();
+        if (game.phase !== PHASES.IDLE && game.phase !== PHASES.WAIT_Z) return;
+        if (btn1.classList.contains('disabled')) return;
+        btn1.classList.add('active');
+        if (game.phase === PHASES.IDLE || game.phase === PHASES.WAIT_Z) {
+          game.phase = PHASES.MOVING_X;
+          game.claw.targetX = 1; // 처음엔 오른쪽으로
+        }
+      };
+      const press1End = (e) => {
+        e.preventDefault();
+        btn1.classList.remove('active');
+        if (game.phase === PHASES.MOVING_X) {
+          game.phase = PHASES.WAIT_Z;
+          enableButton2();
+        }
+      };
+
+      const press2Start = (e) => {
+        e.preventDefault();
+        if (game.phase !== PHASES.WAIT_Z) return;
+        if (btn2.classList.contains('disabled')) return;
+        btn2.classList.add('active');
+        game.phase = PHASES.MOVING_Z;
+        game.claw.targetZ = 1;
+      };
+      const press2End = (e) => {
+        e.preventDefault();
+        btn2.classList.remove('active');
+        if (game.phase === PHASES.MOVING_Z) {
+          // 자동 하강 시작
+          game.phase = PHASES.DESCENDING;
+          game.phaseTime = 0;
+          disableAllButtons();
+        }
+      };
+
+      btn1.addEventListener('mousedown', press1Start);
+      btn1.addEventListener('mouseup', press1End);
+      btn1.addEventListener('mouseleave', press1End);
+      btn1.addEventListener('touchstart', press1Start);
+      btn1.addEventListener('touchend', press1End);
+      btn1.addEventListener('touchcancel', press1End);
+
+      btn2.addEventListener('mousedown', press2Start);
+      btn2.addEventListener('mouseup', press2End);
+      btn2.addEventListener('mouseleave', press2End);
+      btn2.addEventListener('touchstart', press2Start);
+      btn2.addEventListener('touchend', press2End);
+      btn2.addEventListener('touchcancel', press2End);
+    }
+
+    // ===========================
+    // 게임 루프
+    // ===========================
+    function gameLoop(now) {
+      requestAnimationFrame(gameLoop);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      if (game.running) {
+        update(dt);
+      }
+
+      // UI 업데이트
+      document.getElementById('timeLeft').textContent = Math.ceil(game.time);
+      document.getElementById('scoreUI').textContent = game.score;
+      const left = game.boxes.filter(b => !b.collected).length;
+      document.getElementById('boxLeftUI').textContent = left;
+
+      // 그리기
+      if (mainCtx) {
+        drawScene();
+        drawMiniMap();
+      }
+    }
+
+    // ===========================
+    // 게임 흐름
+    // ===========================
+    function startGame() {
       game.score = 0;
       game.time = 30;
       game.running = true;
+      game.phase = PHASES.IDLE;
+      game.collectedThisGame = 0;
+      game.claw = { x: -4.5, z: 0, y: 0, targetX: 0, targetZ: 0, gripped: null, gripOpen: 1.0 };
+      createBoxes();
 
-      startGameLoop();
-    }
+      document.getElementById('mainMenu').classList.remove('show');
+      document.getElementById('gameOverModal').classList.remove('show');
+      document.getElementById('revealModal').classList.remove('show');
+      document.getElementById('gameRoot').classList.add('show');
+      document.getElementById('menuButton').classList.add('show');
 
-    function toggleGrip() {
-      if (game.running) console.log('Grip toggled');
-    }
-
-    function rotateClw() {
-      if (game.running) console.log('Rotated');
-    }
-
-    function startGameLoop() {
-      const canvas = document.querySelector('canvas');
-      const ctx = canvas.getContext('2d');
-
-      // Set canvas size
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-
-      let lastTime = Date.now();
-
-      function loop() {
-        if (!game.running) return;
-
-        const now = Date.now();
-        const delta = (now - lastTime) / 1000;
-        lastTime = now;
-
-        // Update time
-        game.time -= delta;
-        if (game.time <= 0) {
-          game.time = 0;
-          game.running = false;
-          endGame();
-          return;
-        }
-
-        // Draw
-        ctx.fillStyle = '#2a2a3e';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw floor
-        ctx.fillStyle = '#3a3a4e';
-        ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
-
-        // Draw boxes
-        ctx.fillStyle = '#aaaaaa';
-        for (let i = 0; i < 8; i++) {
-          const x = 50 + (i % 4) * 80;
-          const y = 100 + Math.floor(i / 4) * 80;
-          ctx.fillRect(x, y, 60, 60);
-          ctx.strokeStyle = '#888';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x, y, 60, 60);
-        }
-
-        // Draw claw
-        ctx.fillStyle = '#ff6b6b';
-        ctx.fillRect(canvas.width / 2 - 15, 50, 30, 20);
-        ctx.fillRect(canvas.width / 2 - 20, 70, 10, 40);
-        ctx.fillRect(canvas.width / 2 + 10, 70, 10, 40);
-
-        // Update UI
-        document.getElementById('time').textContent = Math.ceil(game.time);
-        document.getElementById('score').textContent = game.score;
-
-        requestAnimationFrame(loop);
-      }
-
-      loop();
+      // Canvas 크기 다시 잡기
+      requestAnimationFrame(() => {
+        resizeCanvas();
+        enableButton1();
+      });
     }
 
     function endGame() {
-      stats.plays++;
-      if (game.score > stats.best) {
-        stats.best = game.score;
-      }
-      localStorage.setItem('best', stats.best);
-      localStorage.setItem('plays', stats.plays);
+      game.running = false;
+      stats.totalPlays++;
+      const isNew = game.score > stats.bestScore;
+      if (isNew) stats.bestScore = game.score;
+      localStorage.setItem('bestScore', stats.bestScore);
+      localStorage.setItem('totalPlays', stats.totalPlays);
 
-      alert('Game Over!\nScore: ' + game.score + '\nBest: ' + stats.best);
-      showMenu();
+      document.getElementById('finalScore').textContent = game.score;
+      document.getElementById('newRecordLabel').style.display = isNew ? 'block' : 'none';
+      document.getElementById('gameOverModal').classList.add('show');
+      document.getElementById('menuButton').classList.remove('show');
     }
 
-    // Handle window resize
-    window.addEventListener('resize', () => {
-      const canvas = document.querySelector('canvas');
-      if (canvas) {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      }
+    function showMenu() {
+      game.running = false;
+      document.getElementById('bestScore').textContent = stats.bestScore;
+      document.getElementById('totalPlays').textContent = stats.totalPlays;
+      document.getElementById('mainMenu').classList.add('show');
+      document.getElementById('gameOverModal').classList.remove('show');
+      document.getElementById('revealModal').classList.remove('show');
+      document.getElementById('gameRoot').classList.remove('show');
+      document.getElementById('menuButton').classList.remove('show');
+    }
+
+    // ===========================
+    // 초기화
+    // ===========================
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('playAgainBtn').addEventListener('click', startGame);
+    document.getElementById('backToMenuBtn').addEventListener('click', showMenu);
+    document.getElementById('menuButton').addEventListener('click', showMenu);
+    document.getElementById('continueBtn').addEventListener('click', () => {
+      document.getElementById('revealModal').classList.remove('show');
     });
 
-    // Start
+    window.addEventListener('resize', () => {
+      if (mainCanvas) resizeCanvas();
+    });
+
+    // 시작
+    setupCanvas();
+    setupButtons();
     showMenu();
+    requestAnimationFrame(gameLoop);
   </script>
 </body>
 </html>
