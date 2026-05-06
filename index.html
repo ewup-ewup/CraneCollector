@@ -708,13 +708,13 @@
     function updatePhaseIndicator() {
       const el = document.getElementById('phaseIndicator');
       const map = {
-        idle: '대기 중',
-        movingX: '🟢 좌우 이동',
-        waitZ: '➡️ 2번 버튼 누르기',
-        movingZ: '🟢 앞뒤 이동',
-        descending: '⬇️ 집게 하강',
-        gripping: '🤏 집기 시도',
-        ascending: '⬆️ 집게 상승',
+        idle: '👉 1번 버튼을 누르세요',
+        movingX: '⬅️➡️ 다시 1번을 눌러 멈추기',
+        waitZ: '👉 2번 버튼을 누르세요',
+        movingZ: '⬆️⬇️ 다시 2번을 눌러 멈추기',
+        descending: '⬇️ 집게 하강 중',
+        gripping: '🤏 집기 시도 중',
+        ascending: '⬆️ 집게 상승 중',
         returning: '↩️ 복귀 중',
       };
       el.textContent = map[game.phase] || '';
@@ -742,57 +742,45 @@
       const btn1 = document.getElementById('button1');
       const btn2 = document.getElementById('button2');
 
-      const press1Start = (e) => {
-        e.preventDefault();
-        if (game.phase !== PHASES.IDLE && game.phase !== PHASES.WAIT_Z) return;
+      // 토글 방식: 클릭하면 시작, 다시 클릭하면 멈춤
+      const onBtn1Click = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (btn1.classList.contains('disabled')) return;
-        btn1.classList.add('active');
-        if (game.phase === PHASES.IDLE || game.phase === PHASES.WAIT_Z) {
+
+        if (game.phase === PHASES.IDLE) {
+          // 시작
           game.phase = PHASES.MOVING_X;
-          game.claw.targetX = 1; // 처음엔 오른쪽으로
-        }
-      };
-      const press1End = (e) => {
-        e.preventDefault();
-        btn1.classList.remove('active');
-        if (game.phase === PHASES.MOVING_X) {
+          game.claw.targetX = 1;
+          btn1.classList.add('active');
+        } else if (game.phase === PHASES.MOVING_X) {
+          // 멈춤 → 2번 활성화
           game.phase = PHASES.WAIT_Z;
+          btn1.classList.remove('active');
           enableButton2();
         }
       };
 
-      const press2Start = (e) => {
-        e.preventDefault();
-        if (game.phase !== PHASES.WAIT_Z) return;
+      const onBtn2Click = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (btn2.classList.contains('disabled')) return;
-        btn2.classList.add('active');
-        game.phase = PHASES.MOVING_Z;
-        game.claw.targetZ = 1;
-      };
-      const press2End = (e) => {
-        e.preventDefault();
-        btn2.classList.remove('active');
-        if (game.phase === PHASES.MOVING_Z) {
-          // 자동 하강 시작
+
+        if (game.phase === PHASES.WAIT_Z) {
+          // 시작
+          game.phase = PHASES.MOVING_Z;
+          game.claw.targetZ = 1;
+          btn2.classList.add('active');
+        } else if (game.phase === PHASES.MOVING_Z) {
+          // 멈춤 → 자동 하강
+          btn2.classList.remove('active');
           game.phase = PHASES.DESCENDING;
           game.phaseTime = 0;
           disableAllButtons();
         }
       };
 
-      btn1.addEventListener('mousedown', press1Start);
-      btn1.addEventListener('mouseup', press1End);
-      btn1.addEventListener('mouseleave', press1End);
-      btn1.addEventListener('touchstart', press1Start);
-      btn1.addEventListener('touchend', press1End);
-      btn1.addEventListener('touchcancel', press1End);
-
-      btn2.addEventListener('mousedown', press2Start);
-      btn2.addEventListener('mouseup', press2End);
-      btn2.addEventListener('mouseleave', press2End);
-      btn2.addEventListener('touchstart', press2Start);
-      btn2.addEventListener('touchend', press2End);
-      btn2.addEventListener('touchcancel', press2End);
+      // click + touchend 모두 처리 (모바일/PC 호환)
+      btn1.addEventListener('click', onBtn1Click);
+      btn2.addEventListener('click', onBtn2Click);
     }
 
     // ===========================
