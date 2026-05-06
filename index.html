@@ -796,10 +796,10 @@
     }
 
     // ===========================
-    // 게임 루프
+    // 게임 루프 (setInterval 기반 update + raf 기반 render)
     // ===========================
-    function gameLoop(now) {
-      requestAnimationFrame(gameLoop);
+    function tick() {
+      const now = performance.now();
       const dt = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;
 
@@ -812,13 +812,22 @@
       document.getElementById('scoreUI').textContent = game.score;
       const left = game.boxes.filter(b => !b.collected).length;
       document.getElementById('boxLeftUI').textContent = left;
+    }
 
-      // 그리기
+    function renderLoop() {
+      requestAnimationFrame(renderLoop);
       if (mainCtx) {
         drawScene();
         drawMiniMap();
       }
     }
+
+    // visibilitychange: 다시 보이면 lastTime 리셋
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        lastTime = performance.now();
+      }
+    });
 
     // ===========================
     // 게임 흐름
@@ -889,7 +898,9 @@
     setupCanvas();
     setupButtons();
     showMenu();
-    requestAnimationFrame(gameLoop);
+    lastTime = performance.now();
+    setInterval(tick, 1000 / 60); // 60Hz update (페이지 hidden에서도 작동)
+    requestAnimationFrame(renderLoop); // raf 기반 렌더링
   </script>
 </body>
 </html>
